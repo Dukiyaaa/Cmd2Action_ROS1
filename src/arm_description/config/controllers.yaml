@@ -1,0 +1,18 @@
+joint_state_controller:
+  type: joint_state_controller/JointStateController
+  publish_rate: 50
+
+rotation1_position_controller:
+  type: position_controllers/JointPositionController
+  joint: rotation1
+  pid: {p: 50.0, i: 0.0, d: 2.0}
+
+rotation2_position_controller:
+  type: position_controllers/JointPositionController
+  joint: rotation2
+  pid: {p: 50.0, i: 0.0, d: 2.0}
+
+gripper_position_controller:
+  type: position_controllers/JointPositionController
+  joint: gripper_joint
+  pid: {p: 50.0, i: 0.0, d: 2.0}

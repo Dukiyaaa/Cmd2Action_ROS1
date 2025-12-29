@@ -10,6 +10,9 @@
     <!-- load robot_description by expanding xacro -->
     <param name="robot_description" command="xacro $(arg model)"/>
 
+    <!-- load ros_control controllers -->
+    <rosparam file="$(find arm_description)/config/controllers.yaml" command="load"/>
+
     <!-- start Gazebo (GUI) -->
     <include file="$(find gazebo_ros)/launch/empty_world.launch">
         <arg name="world_name" value="$(arg world)"/>
@@ -22,4 +25,8 @@
     <!-- spawn the robot into Gazebo using robot_description -->
     <node name="spawn_urdf" pkg="gazebo_ros" type="spawn_model" output="screen"
           args="-urdf -param robot_description -model scara_robot"/>
+
+        <!-- start controllers (position control for two arms + prismatic) -->
+        <node name="controller_spawner" pkg="controller_manager" type="spawner" output="screen"
+            args="joint_state_controller rotation1_position_controller rotation2_position_controller gripper_position_controller"/>
 </launch>
