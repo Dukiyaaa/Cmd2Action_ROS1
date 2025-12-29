@@ -184,8 +184,13 @@ def main():
         
         # Demo 3: 抬起方块
         rospy.loginfo("=== Demo 3: 抬起方块 ===")
-        controller.move_arm_simple(np.pi/2, 0.0, -0.15, duration=4.0)
+        controller.move_arm_simple(np.pi/2, 0.0, -0.0, duration=4.0)
         rospy.loginfo("抬起完成！\n")
+        
+        controller.move_arm_simple(0.0, 0.0, 0.0, duration=3.0)
+        rospy.loginfo("手臂回到初始位置！\n")
+
+        controller.open_gripper(duration=3.0)
         
         rospy.loginfo("=== 演示完成，按 Ctrl+C 退出 ===")
         rospy.spin()
