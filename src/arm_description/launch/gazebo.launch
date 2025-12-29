@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<launch>
+    <!-- args -->
+    <arg name="model" default="$(find arm_description)/urdf/scara.urdf.xacro"/>
+    <arg name="world" default="$(find gazebo_ros)/worlds/empty.world"/>
+
+    <!-- use simulation time from Gazebo -->
+    <param name="use_sim_time" value="true"/>
+
+    <!-- load robot_description by expanding xacro -->
+    <param name="robot_description" command="xacro $(arg model)"/>
+
+    <!-- start Gazebo (GUI) -->
+    <include file="$(find gazebo_ros)/launch/empty_world.launch">
+        <arg name="world_name" value="$(arg world)"/>
+        <arg name="paused" value="false"/>
+        <arg name="use_sim_time" value="true"/>
+        <arg name="gui" value="true"/>
+        <arg name="headless" value="false"/>
+    </include>
+
+    <!-- spawn the robot into Gazebo using robot_description -->
+    <node name="spawn_urdf" pkg="gazebo_ros" type="spawn_model" output="screen"
+          args="-urdf -param robot_description -model scara_robot"/>
+</launch>
