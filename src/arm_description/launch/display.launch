@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<launch>
+    <!-- 参数设置 -->
+    <arg name="model" default="$(find arm_description)/urdf/scara.urdf.xacro"/>
+    <arg name="gui" default="false"/>
+    <arg name="rvizconfig" default="$(find arm_description)/launch/urdf.rviz"/>
+
+    <!-- 将 xacro 转换为 URDF 并设置到参数服务器 -->
+    <param name="robot_description" command="xacro $(arg model)"/>
+
+    <!-- 启动 joint_state_publisher 用于发布关节状态 -->
+    <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher">
+        <param name="use_gui" value="$(arg gui)"/>
+    </node>
+
+    <!-- 启动 robot_state_publisher 用于发布 TF 和状态 -->
+    <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher"/>
+
+    <!-- 启动 RViz -->
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(arg rvizconfig)" required="true"/>
+</launch>

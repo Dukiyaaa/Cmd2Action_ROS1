@@ -1,0 +1,302 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+    <xacro:macro name="base_xacro">
+        <link name="world"/>
+        <joint name="joint_fix" type="fixed">
+            <parent link="world"/>
+            <child link="base_link"/>
+        </joint>
+
+        <link name="base_link">
+            <collision>
+                <origin xyz="0 0 0.2" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="0.4" radius="0.1"/>
+                </geometry>
+            </collision>
+            <visual>
+                <origin xyz="0 0 0.2" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="0.4" radius="0.1"/>
+                </geometry>
+                <material name="dark_gray">
+                    <color rgba="0.4 0.4 0.4 1.0"/>
+                </material>
+            </visual>
+            <inertial>
+                <origin xyz="0 0 0.2" rpy="0 0 0"/>
+                <mass value="2.0"/>
+                <inertia ixx="0.0317" ixy="0.0" ixz="0.0" iyy="0.0317" iyz="0.0" izz="0.01"/>
+            </inertial>
+        </link>
+        <gazebo reference="base_link">
+            <material>Gazebo/White</material>
+        </gazebo>
+
+        <joint name="rotation1" type="revolute">
+            <parent link="base_link"/>
+            <child link="arm1"/>
+            <origin xyz="0 0 0.4" rpy="0 0 0"/>
+            <axis xyz="0 0 1"/>
+            <limit effort="20" velocity="2.0" lower="-2.6" upper="2.6"/>
+            <dynamics damping="0.1" friction="0.05"/>
+        </joint>
+
+        <link name="arm1">
+            <collision>
+                <origin xyz="0 -0.5 0.05" rpy="0 0 0"/>
+                <geometry>
+                    <box size="0.1 1.1 0.1"/>
+                </geometry>
+            </collision>
+            <visual>
+                <origin xyz="0 -0.5 0.05" rpy="0 0 0"/>
+                <geometry>
+                    <box size="0.1 1.1 0.1"/>
+                </geometry>
+                <material name="dark_gray">
+                    <color rgba="0.4 0.4 0.4 1.0"/>
+                </material>
+            </visual>
+            <inertial>
+                <origin xyz="0 -0.5 0.05" rpy="0 0 0"/>
+                <mass value="1.5"/>
+                <inertia ixx="0.1525" ixy="0.0" ixz="0.0" iyy="0.0025" iyz="0.0" izz="0.1525"/>
+            </inertial>
+        </link>
+        <gazebo reference="arm1">
+            <material>Gazebo/White</material>
+        </gazebo>
+
+        <joint name="rotation2" type="revolute">
+            <parent link="arm1"/>
+            <child link="arm2"/>
+            <origin xyz="0 -1.0 0.1" rpy="0 0 0"/>
+            <axis xyz="0 0 1"/>
+            <limit effort="15" velocity="2.0" lower="-3.00" upper="3.00"/>
+            <dynamics damping="0.1" friction="0.05"/>
+        </joint>
+
+        <link name="arm2">
+            <collision>
+                <origin xyz="0 -0.4 0.05" rpy="0 0 0"/>
+                <geometry>
+                    <box size="0.1 0.9 0.1"/>
+                </geometry>
+            </collision>
+            <visual>
+                <origin xyz="0 -0.4 0.05" rpy="0 0 0"/>
+                <geometry>
+                    <box size="0.1 0.9 0.1"/>
+                </geometry>
+                <material name="dark_gray">
+                    <color rgba="0.4 0.4 0.4 1.0"/>
+                </material>
+            </visual>
+            <inertial>
+                <origin xyz="0 -0.4 0.05" rpy="0 0 0"/>
+                <mass value="1.0"/>
+                <inertia ixx="0.0683" ixy="0.0" ixz="0.0" iyy="0.00167" iyz="0.0" izz="0.0683"/>
+            </inertial>
+        </link>
+        <gazebo reference="arm2">
+            <material>Gazebo/White</material>
+        </gazebo>
+
+        <joint name="gripper_joint" type="prismatic">
+            <parent link="arm2"/>
+            <child link="gripper_link"/>
+            <origin xyz="0 -0.8 0" rpy="0 0 0"/>
+            <axis xyz="0 0 1"/>
+            <limit effort="10" velocity="0.1" lower="-0.8" upper="0.0"/>
+            <dynamics damping="0.1" friction="0.05"/>
+        </joint>
+
+        <link name="gripper_link">
+            <collision>
+                <origin xyz="0 0 -0.1" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="0.2" radius="0.02"/>
+                </geometry>
+            </collision>
+            <visual>
+                <origin xyz="0 0 -0.1" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="0.2" radius="0.02"/>
+                </geometry>
+                <material name="dark_gray">
+                    <color rgba="0.4 0.4 0.4 1.0"/>
+                </material>
+            </visual>
+            <inertial>
+                <origin xyz="0 0 -0.1" rpy="0 0 0"/>
+                <mass value="0.5"/>
+                <inertia ixx="0.00172" ixy="0.0" ixz="0.0" iyy="0.00172" iyz="0.0" izz="0.0001"/>
+            </inertial>
+        </link>
+        <gazebo reference="gripper_link">
+            <material>Gazebo/White</material>
+        </gazebo>
+
+        <joint name="finger1_joint" type="prismatic">
+            <parent link="gripper_link"/>
+            <child link="finger1"/>
+            <origin xyz="0 -0.04 -0.23" rpy="0 0 0"/>
+            <axis xyz="0 1 0"/>
+            <limit effort="20" velocity="0.05" lower="0.0" upper="0.04"/>
+            <dynamics damping="0.1" friction="0.1"/>
+        </joint>
+        <link name="finger1">
+            <collision name="finger1_collision">
+                <origin xyz="0 0 0" rpy="0 0 0"/>
+                <geometry>
+                    <box size="0.02 0.01 0.02"/>
+                </geometry>
+            </collision>
+            <visual>
+                <origin xyz="0 0 0" rpy="0 0 0"/>
+                <geometry>
+                    <box size="0.02 0.01 0.02"/>
+                </geometry>
+                <material name="dark_gray">
+                    <color rgba="0.4 0.4 0.4 1.0"/>
+                </material>
+            </visual>
+            <inertial>
+                <origin xyz="0 0 0" rpy="0 0 0"/>
+                <mass value="0.1"/>
+                <inertia ixx="4.17e-6" ixy="0.0" ixz="0.0" iyy="6.67e-6" iyz="0.0" izz="4.17e-6"/>
+            </inertial>
+        </link>
+        <gazebo reference="finger1">
+            <material>Gazebo/White</material>
+            <mu1 value="1000.0" />
+            <mu2 value="1000.0" />
+            <kp value="1000000.0" />
+            <kd value="100.0" />
+            <minDepth>0.001</minDepth>
+            <maxVel>0.0</maxVel>
+        </gazebo>
+
+        <joint name="finger2_joint" type="prismatic">
+            <parent link="gripper_link"/>
+            <child link="finger2"/>
+            <origin xyz="0.04 0 -0.23" rpy="0 0 0"/>
+            <axis xyz="1 0 0"/>
+            <limit effort="20" velocity="0.05" lower="-0.04" upper="0.0"/>
+            <dynamics damping="0.1" friction="0.1"/>
+        </joint>
+        <link name="finger2">
+            <collision name="finger2_collision">
+                <origin xyz="0 0 0" rpy="0 0 0"/>
+                <geometry>
+                    <box size="0.01 0.02 0.02"/>
+                </geometry>
+            </collision>
+            <visual>
+                <origin xyz="0 0 0" rpy="0 0 0"/>
+                <geometry>
+                    <box size="0.01 0.02 0.02"/>
+                </geometry>
+                <material name="dark_gray">
+                    <color rgba="0.4 0.4 0.4 1.0"/>
+                </material>
+            </visual>
+            <inertial>
+                <origin xyz="0 0 0" rpy="0 0 0"/>
+                <mass value="0.1"/>
+                <inertia ixx="6.67e-6" ixy="0.0" ixz="0.0" iyy="4.17e-6" iyz="0.0" izz="4.17e-6"/>
+            </inertial>
+        </link>
+        <gazebo reference="finger2">
+            <material>Gazebo/White</material>
+            <mu1 value="1000.0" />
+            <mu2 value="1000.0" />
+            <kp value="1000000.0" />
+            <kd value="100.0" />
+            <minDepth>0.001</minDepth>
+            <maxVel>0.0</maxVel>
+        </gazebo>
+
+        <joint name="finger3_joint" type="prismatic">
+            <parent link="gripper_link"/>
+            <child link="finger3"/>
+            <origin xyz="0 0.04 -0.23" rpy="0 0 0"/>
+            <axis xyz="0 1 0"/>
+            <limit effort="20" velocity="0.05" lower="-0.04" upper="0.0"/>
+            <dynamics damping="0.1" friction="0.1"/>
+        </joint>
+        <link name="finger3">
+            <collision name="finger3_collision">
+                <origin xyz="0 0 0" rpy="0 0 0"/>
+                <geometry>
+                    <box size="0.02 0.01 0.02"/>
+                </geometry>
+            </collision>
+            <visual>
+                <origin xyz="0 0 0" rpy="0 0 0"/>
+                <geometry>
+                    <box size="0.02 0.01 0.02"/>
+                </geometry>
+                <material name="dark_gray">
+                    <color rgba="0.4 0.4 0.4 1.0"/>
+                </material>
+            </visual>
+            <inertial>
+                <origin xyz="0 0 0" rpy="0 0 0"/>
+                <mass value="0.1"/>
+                <inertia ixx="4.17e-6" ixy="0.0" ixz="0.0" iyy="6.67e-6" iyz="0.0" izz="4.17e-6"/>
+            </inertial>
+        </link>
+        <gazebo reference="finger3">
+            <material>Gazebo/White</material>
+            <mu1 value="1000.0" />
+            <mu2 value="1000.0" />
+            <kp value="1000000.0" />
+            <kd value="100.0" />
+            <minDepth>0.001</minDepth>
+            <maxVel>0.0</maxVel>
+        </gazebo>
+
+        <joint name="finger4_joint" type="prismatic">
+            <parent link="gripper_link"/>
+            <child link="finger4"/>
+            <origin xyz="-0.04 0 -0.23" rpy="0 0 0"/>
+            <axis xyz="1 0 0"/>
+            <limit effort="20" velocity="0.05" lower="0.0" upper="0.04"/>
+            <dynamics damping="0.1" friction="0.1"/>
+        </joint>
+        <link name="finger4">
+            <collision name="finger4_collision">
+                <origin xyz="0 0 0" rpy="0 0 0"/>
+                <geometry>
+                    <box size="0.01 0.02 0.02"/>
+                </geometry>
+            </collision>
+            <visual>
+                <origin xyz="0 0 0" rpy="0 0 0"/>
+                <geometry>
+                    <box size="0.01 0.02 0.02"/>
+                </geometry>
+                <material name="dark_gray">
+                    <color rgba="0.4 0.4 0.4 1.0"/>
+                </material>
+            </visual>
+            <inertial>
+                <origin xyz="0 0 0" rpy="0 0 0"/>
+                <mass value="0.1"/>
+                <inertia ixx="6.67e-6" ixy="0.0" ixz="0.0" iyy="4.17e-6" iyz="0.0" izz="4.17e-6"/>
+            </inertial>
+        </link>
+        <gazebo reference="finger4">
+            <material>Gazebo/White</material>
+            <mu1 value="1000.0" />
+            <mu2 value="1000.0" />
+            <kp value="1000000.0" />
+            <kd value="100.0" />
+            <minDepth>0.001</minDepth>
+            <maxVel>0.0</maxVel>
+        </gazebo>
+
+    </xacro:macro>
+</robot>
