@@ -128,12 +128,6 @@ class SimpleController:
         """初始化世界: 生成方块等"""
         rospy.loginfo("=== 初始化世界 ===")
         
-        # 移动到初始位置
-        # rospy.loginfo("移动到初始位置...")
-        # self.move_arm_simple(np.pi/2, 0.0, 0.0, duration=3.0)
-        # rospy.sleep(2.0)
-        # rospy.loginfo("完成!\n")
-        
         # 生成方块
         rospy.loginfo("生成测试方块...")
         success = self.box.spawn_box(

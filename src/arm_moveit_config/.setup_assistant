@@ -1,0 +1,11 @@
+moveit_setup_assistant_config:
+  URDF:
+    package: arm_description
+    relative_path: urdf/scara.urdf.xacro
+    xacro_args: ""
+  SRDF:
+    relative_path: config/scara_robot.srdf
+  CONFIG:
+    author_name: dukiya
+    author_email: dukiya@qq.com
+    generated_timestamp: 1767015825
