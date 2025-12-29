@@ -36,6 +36,50 @@
             </actuator>
         </transmission>
 
+        <transmission name="finger1_transmission">
+            <type>transmission_interface/SimpleTransmission</type>
+            <joint name="finger1_joint">
+                <hardwareInterface>hardware_interface/PositionJointInterface</hardwareInterface>
+            </joint>
+            <actuator name="finger1_motor">
+                <hardwareInterface>hardware_interface/PositionJointInterface</hardwareInterface>
+                <mechanicalReduction>1</mechanicalReduction>
+            </actuator>
+        </transmission>
+
+        <transmission name="finger2_transmission">
+            <type>transmission_interface/SimpleTransmission</type>
+            <joint name="finger2_joint">
+                <hardwareInterface>hardware_interface/PositionJointInterface</hardwareInterface>
+            </joint>
+            <actuator name="finger2_motor">
+                <hardwareInterface>hardware_interface/PositionJointInterface</hardwareInterface>
+                <mechanicalReduction>1</mechanicalReduction>
+            </actuator>
+        </transmission>
+
+        <transmission name="finger3_transmission">
+            <type>transmission_interface/SimpleTransmission</type>
+            <joint name="finger3_joint">
+                <hardwareInterface>hardware_interface/PositionJointInterface</hardwareInterface>
+            </joint>
+            <actuator name="finger3_motor">
+                <hardwareInterface>hardware_interface/PositionJointInterface</hardwareInterface>
+                <mechanicalReduction>1</mechanicalReduction>
+            </actuator>
+        </transmission>
+
+        <transmission name="finger4_transmission">
+            <type>transmission_interface/SimpleTransmission</type>
+            <joint name="finger4_joint">
+                <hardwareInterface>hardware_interface/PositionJointInterface</hardwareInterface>
+            </joint>
+            <actuator name="finger4_motor">
+                <hardwareInterface>hardware_interface/PositionJointInterface</hardwareInterface>
+                <mechanicalReduction>1</mechanicalReduction>
+            </actuator>
+        </transmission>
+        
         <!-- Gazebo ros_control plugin -->
         <gazebo>
             <plugin name="gazebo_ros_control" filename="libgazebo_ros_control.so"/>

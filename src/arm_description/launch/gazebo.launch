@@ -26,7 +26,11 @@
     <node name="spawn_urdf" pkg="gazebo_ros" type="spawn_model" output="screen"
           args="-urdf -param robot_description -model scara_robot"/>
 
-        <!-- start controllers (position control for two arms + prismatic) -->
-        <node name="controller_spawner" pkg="controller_manager" type="spawner" output="screen"
-            args="joint_state_controller rotation1_position_controller rotation2_position_controller gripper_position_controller"/>
+    <!-- start controllers (position control for two arms + prismatic) -->
+    <node name="controller_spawner" pkg="controller_manager" type="spawner" output="screen"
+        args="joint_state_controller rotation1_position_controller rotation2_position_controller gripper_position_controller finger1_position_controller finger2_position_controller finger3_position_controller finger4_position_controller"/>
+
+    <!-- publish initial positions to prevent gripper from falling -->
+    <node name="init_positions" pkg="rostopic" type="rostopic" output="screen"
+          args="pub -1 /gripper_position_controller/command std_msgs/Float64 'data: 0.0'"/>
 </launch>

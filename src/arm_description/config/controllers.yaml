@@ -1,3 +1,13 @@
+# gazebo_ros_control:
+#   pid_gains:
+#     rotation1: {p: 50.0, i: 0.0, d: 2.0}
+#     rotation2: {p: 50.0, i: 0.0, d: 2.0}
+#     gripper_joint: {p: 50.0, i: 0.0, d: 2.0}
+#     finger1_joint: {p: 30.0, i: 0.0, d: 1.0}
+#     finger2_joint: {p: 30.0, i: 0.0, d: 1.0}
+#     finger3_joint: {p: 30.0, i: 0.0, d: 1.0}
+#     finger4_joint: {p: 30.0, i: 0.0, d: 1.0}
+
 joint_state_controller:
   type: joint_state_controller/JointStateController
   publish_rate: 50
@@ -16,3 +26,23 @@ gripper_position_controller:
   type: position_controllers/JointPositionController
   joint: gripper_joint
   pid: {p: 50.0, i: 0.0, d: 2.0}
+
+finger1_position_controller:
+  type: position_controllers/JointPositionController
+  joint: finger1_joint
+  pid: {p: 30.0, i: 0.0, d: 1.0}
+
+finger2_position_controller:
+  type: position_controllers/JointPositionController
+  joint: finger2_joint
+  pid: {p: 30.0, i: 0.0, d: 1.0}
+
+finger3_position_controller:
+  type: position_controllers/JointPositionController
+  joint: finger3_joint
+  pid: {p: 30.0, i: 0.0, d: 1.0}
+
+finger4_position_controller:
+  type: position_controllers/JointPositionController
+  joint: finger4_joint
+  pid: {p: 30.0, i: 0.0, d: 1.0}
