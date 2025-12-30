@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-最简单的 SCARA 机器人控制 Demo (ROS1 Version)
-目的: 学习如何通过 ROS1 话题控制关节位置
-"""
+
+import sys
+import os
+
+# 添加源代码目录到 Python 路径
+script_dir = os.path.dirname(os.path.abspath(__file__))
+if script_dir not in sys.path:
+    sys.path.insert(0, script_dir)
 
 import rospy
 import numpy as np
@@ -17,10 +21,11 @@ box_x = 1.0
 box_y = 1.0
 box_z = 0.05
 
-class SimpleController:
+time_sleep = 1.0
+class ArmController:
     def __init__(self):
         """初始化控制器"""
-        rospy.init_node('simple_controller', anonymous=True)
+        rospy.init_node('arm_controller', anonymous=True)
         
         # 创建各关节位置控制发布器
         self.rotation1_pub = rospy.Publisher(
@@ -149,53 +154,71 @@ class SimpleController:
         else:
             rospy.logwarn("方块生成可能失败")
         
-        rospy.sleep(1.0)
+        # rospy.sleep(time_sleep)
         
         # 打开夹爪
         self.open_gripper(duration=2.0)
-        rospy.sleep(1.0)
         rospy.loginfo("初始化完成!\n")
 
+    def pick_and_place(self, pick_pos, place_pos):
+        pick_x, pick_y, pick_z = pick_pos
+        place_x, place_y, place_z = place_pos
+
+        origin_height = 0.5
+        theta1_c, theta2_c, d3_c, reachable = inverse_kinematics(pick_x, pick_y, origin_height, elbow="down")
+        if not reachable:
+            rospy.logwarn("抓取位置不可达: (%.3f, %.3f, %.3f)" % (pick_x, pick_y, pick_z))
+            return
+        rospy.loginfo("前往抓取目标上方")
+        self.move_arm_simple(theta1_c, theta2_c, d3_c, duration=3.0)
+        # rospy.sleep(time_sleep)
+        rospy.loginfo("下降夹爪")
+        self.move_arm_simple(theta1_c, theta2_c, pick_z+0.195-origin_height, duration=3.0)
+        rospy.loginfo("闭合夹爪")
+        self.close_gripper(duration=3.0)
+        # rospy.sleep(time_sleep)
+        rospy.loginfo("抬起")
+        self.move_arm_simple(theta1_c, theta2_c, origin_height-pick_z+0.195, duration=3.0)
+
+        rospy.loginfo("前往放置位置上方")
+        theta1_c, theta2_c, d3_c, reachable = inverse_kinematics(place_x, place_y, origin_height, elbow="down")
+        if not reachable:
+            rospy.logwarn("放置位置不可达: (%.3f, %.3f, %.3f)" % (place_x, place_y, place_z))
+            return
+        self.move_arm_simple(theta1_c, theta2_c, d3_c, duration=3.0)
+        # rospy.sleep(time_sleep)
+        rospy.loginfo("下降夹爪")
+        self.move_arm_simple(theta1_c, theta2_c, place_z+0.195-origin_height, duration=3.0)
+        rospy.loginfo("打开夹爪")
+        self.open_gripper(duration=3.0)
+        # rospy.sleep(time_sleep)
+        rospy.loginfo("抬起夹爪")
+        self.move_arm_simple(theta1_c, theta2_c, origin_height-place_z+0.195, duration=3.0)
+        rospy.loginfo("抓取放置任务完成")
     
+    def arm_reset(self):
+        """手臂复位到初始位置"""
+        rospy.loginfo("手臂复位到初始位置")
+        self.move_arm_simple(0.0, 0.0, 0.0, duration=3.0)
+        # rospy.sleep(time_sleep)
+        self.open_gripper(duration=2.0)
+        rospy.loginfo("手臂复位完成\n")
+
 def main():
     try:
-        controller = SimpleController()
+        controller = ArmController()
         
         # 初始化世界
         controller.world_init()
         
-        theta1_c, theta2_c, d3_c, reachable = inverse_kinematics(box_x, box_y, box_z+0.195, elbow="down")
-        rospy.loginfo("逆运动学计算结果: theta1=%.3f, theta2=%.3f, d3=%.3f, reachable=%s"
-                     % (theta1_c, theta2_c, d3_c, reachable))
-        # # Demo 1: 移动手臂到抓取位置
-        rospy.loginfo("=== Demo 1: 移动手臂到抓取位置 (下降到方块高度) ===")
-        # controller.move_arm_simple(np.pi/2, 0.0, -0.255, duration=3.0)
-        controller.move_arm_simple(theta1_c, theta2_c, d3_c, duration=3.0)
+        controller.pick_and_place(
+            pick_pos=(box_x, box_y, box_z),
+            place_pos=(0.5, 0.0, box_z)
+        )
+        
+        controller.arm_reset()
 
-        
-        rospy.loginfo("到达抓取位置，等待稳定...")
-        rospy.sleep(2.0)
-        rospy.loginfo("位置稳定!\n")
-        
-        # Demo 2: 关闭夹爪夹取方块
-        rospy.loginfo("=== Demo 2: 准备夹取方块 ===")
-        controller.close_gripper(duration=3.0)
-        
-        rospy.loginfo("等待物理引擎稳定接触和grasp_fix插件附着...")
-        rospy.sleep(3.0)
-        rospy.loginfo("夹取完成!\n")
-        
-        # Demo 3: 抬起方块
-        rospy.loginfo("=== Demo 3: 抬起方块 ===")
-        controller.move_arm_simple(theta1_c, theta2_c, -0.0, duration=4.0)
-        rospy.loginfo("抬起完成！\n")
-        
-        # theta1_c, theta2_c, d3_c, reachable = inverse_kinematics(0.0, 0.0, 0, elbow="down")
-        controller.move_arm_simple(0.0, 0.0, 0.0, duration=3.0)
-        rospy.loginfo("手臂回到初始位置！\n")
-
-        controller.open_gripper(duration=3.0)
-        
+        controller.box.delete_entity('test_box')
         rospy.loginfo("=== 演示完成，按 Ctrl+C 退出 ===")
         rospy.spin()
         
