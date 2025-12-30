@@ -164,38 +164,39 @@ def main():
         # 初始化世界
         controller.world_init()
         
-        theta1_c, theta2_c, d3_c, reachable = inverse_kinematics(box_x, box_y, box_z+0.2, elbow="down")
+        theta1_c, theta2_c, d3_c, reachable = inverse_kinematics(box_x, box_y, box_z+0.195, elbow="down")
         rospy.loginfo("逆运动学计算结果: theta1=%.3f, theta2=%.3f, d3=%.3f, reachable=%s"
                      % (theta1_c, theta2_c, d3_c, reachable))
         # # Demo 1: 移动手臂到抓取位置
-        # rospy.loginfo("=== Demo 1: 移动手臂到抓取位置 (下降到方块高度) ===")
+        rospy.loginfo("=== Demo 1: 移动手臂到抓取位置 (下降到方块高度) ===")
         # controller.move_arm_simple(np.pi/2, 0.0, -0.255, duration=3.0)
         controller.move_arm_simple(theta1_c, theta2_c, d3_c, duration=3.0)
 
         
-        # rospy.loginfo("到达抓取位置，等待稳定...")
-        # rospy.sleep(2.0)
-        # rospy.loginfo("位置稳定!\n")
+        rospy.loginfo("到达抓取位置，等待稳定...")
+        rospy.sleep(2.0)
+        rospy.loginfo("位置稳定!\n")
         
-        # # Demo 2: 关闭夹爪夹取方块
-        # rospy.loginfo("=== Demo 2: 准备夹取方块 ===")
-        # controller.close_gripper(duration=3.0)
+        # Demo 2: 关闭夹爪夹取方块
+        rospy.loginfo("=== Demo 2: 准备夹取方块 ===")
+        controller.close_gripper(duration=3.0)
         
-        # rospy.loginfo("等待物理引擎稳定接触和grasp_fix插件附着...")
-        # rospy.sleep(3.0)
-        # rospy.loginfo("夹取完成!\n")
+        rospy.loginfo("等待物理引擎稳定接触和grasp_fix插件附着...")
+        rospy.sleep(3.0)
+        rospy.loginfo("夹取完成!\n")
         
-        # # Demo 3: 抬起方块
-        # rospy.loginfo("=== Demo 3: 抬起方块 ===")
-        # controller.move_arm_simple(np.pi/2, 0.0, -0.0, duration=4.0)
-        # rospy.loginfo("抬起完成！\n")
+        # Demo 3: 抬起方块
+        rospy.loginfo("=== Demo 3: 抬起方块 ===")
+        controller.move_arm_simple(theta1_c, theta2_c, -0.0, duration=4.0)
+        rospy.loginfo("抬起完成！\n")
         
-        # controller.move_arm_simple(0.0, 0.0, 0.0, duration=3.0)
-        # rospy.loginfo("手臂回到初始位置！\n")
+        # theta1_c, theta2_c, d3_c, reachable = inverse_kinematics(0.0, 0.0, 0, elbow="down")
+        controller.move_arm_simple(0.0, 0.0, 0.0, duration=3.0)
+        rospy.loginfo("手臂回到初始位置！\n")
 
-        # controller.open_gripper(duration=3.0)
+        controller.open_gripper(duration=3.0)
         
-        # rospy.loginfo("=== 演示完成，按 Ctrl+C 退出 ===")
+        rospy.loginfo("=== 演示完成，按 Ctrl+C 退出 ===")
         rospy.spin()
         
     except rospy.ROSInterruptException:

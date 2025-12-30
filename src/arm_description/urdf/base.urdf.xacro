@@ -38,7 +38,7 @@
             <child link="arm1"/>
             <origin xyz="0 0 0.4" rpy="0 0 0"/>
             <axis xyz="0 0 1"/>
-            <limit effort="20" velocity="2.0" lower="-2.6" upper="2.6"/>
+            <limit effort="20" velocity="2.0" lower="-3.2" upper="3.2"/>
             <dynamics damping="0.1" friction="0.05"/>
         </joint>
 
@@ -73,7 +73,7 @@
             <child link="arm2"/>
             <origin xyz="0 -1.0 0.1" rpy="0 0 0"/>
             <axis xyz="0 0 1"/>
-            <limit effort="15" velocity="2.0" lower="-3.00" upper="3.00"/>
+            <limit effort="15" velocity="2.0" lower="-3.2" upper="3.2"/>
             <dynamics damping="0.1" friction="0.05"/>
         </joint>
 

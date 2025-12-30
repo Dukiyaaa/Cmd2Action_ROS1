@@ -75,6 +75,7 @@ def clamp_joint_values(theta1: float, theta2: float, d3: float):
 # 逆运动学
 def inverse_kinematics(x: float, y: float, z: float, elbow: str = "down"):
     # 由于坐标系问题,需要先做一下变换
+    x, y = -y, x
     # 平面距离
     r2 = x * x + y * y
     r = np.sqrt(r2)
