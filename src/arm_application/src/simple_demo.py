@@ -174,13 +174,13 @@ def main():
         controller.world_init()
 
         # controller.close_gripper()
-        rospy.loginfo("旋转夹爪")
-        controller.gripper_roll_pub.publish(Float64(np.pi/4))
+        # rospy.loginfo("旋转夹爪")
+        # controller.gripper_roll_pub.publish(Float64(np.pi/4))
 
         # 这个坐标方块会与夹爪不平行，可用于测试
-        # box_x = 1.2
-        # box_y = 0.0
-        # box_z = 0.05
+        box_x = 1.2
+        box_y = 0.0
+        box_z = 0.05
 
         # box_x = 1.8
         # box_y = 0.0
@@ -195,13 +195,13 @@ def main():
         # rospy.loginfo("放置位置: (%.3f, %.3f, %.3f)" % (place_x, place_y, place_z))
         
         # # 生成方块名称
-        # box_name = 'test_box'
+        box_name = 'test_box'
         
-        # # 显示方块
-        # success = controller.display_test_box(
-        #     box_pos=(box_x, box_y, box_z),
-        #     box_name=box_name
-        # )
+        # 显示方块
+        success = controller.display_test_box(
+            box_pos=(box_x, box_y, box_z),
+            box_name=box_name
+        )
         
         # if not success:
         #     rospy.logerr("方块生成失败，结束程序")
