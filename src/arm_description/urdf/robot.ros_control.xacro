@@ -90,13 +90,12 @@
                 <arm>
                     <arm_name>scara_arm</arm_name>
                     <palm_link>gripper_link</palm_link>
-                    <!-- 注意: finger链路实际名称为 finger1/finger2/finger3/finger4 -->
                     <gripper_link>finger1</gripper_link>
                     <gripper_link>finger2</gripper_link>
                     <gripper_link>finger3</gripper_link>
                     <gripper_link>finger4</gripper_link>
                 </arm>
-                <forces_angle_tolerance>100</forces_angle_tolerance>
+                <forces_angle_tolerance>92</forces_angle_tolerance>
                 <update_rate>90</update_rate>
                 <grip_count_threshold>8</grip_count_threshold>
                 <max_grip_count>12</max_grip_count>

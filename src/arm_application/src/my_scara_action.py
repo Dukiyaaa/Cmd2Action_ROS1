@@ -153,6 +153,7 @@ class ArmController:
         place_x, place_y, place_z = place_pos
 
         origin_height = 0.5
+        div = 0.187
         theta1_c, theta2_c, d3_c, reachable = inverse_kinematics(pick_x, pick_y, origin_height, elbow="down")
         if not reachable:
             rospy.logwarn("抓取位置不可达: (%.3f, %.3f, %.3f)" % (pick_x, pick_y, pick_z))
@@ -161,12 +162,12 @@ class ArmController:
         self.move_arm_simple(theta1_c, theta2_c, d3_c, duration=3.0)
         # rospy.sleep(time_sleep)
         rospy.loginfo("下降夹爪")
-        self.move_arm_simple(theta1_c, theta2_c, pick_z+0.195-origin_height, duration=3.0)
+        self.move_arm_simple(theta1_c, theta2_c, pick_z+div-origin_height, duration=3.0)
         rospy.loginfo("闭合夹爪")
         self.close_gripper(duration=3.0)
         # rospy.sleep(time_sleep)
         rospy.loginfo("抬起")
-        self.move_arm_simple(theta1_c, theta2_c, origin_height-pick_z+0.195, duration=3.0)
+        self.move_arm_simple(theta1_c, theta2_c, origin_height-pick_z+div, duration=3.0)
 
         rospy.loginfo("前往放置位置上方")
         theta1_c, theta2_c, d3_c, reachable = inverse_kinematics(place_x, place_y, origin_height, elbow="down")
@@ -176,12 +177,12 @@ class ArmController:
         self.move_arm_simple(theta1_c, theta2_c, d3_c, duration=3.0)
         # rospy.sleep(time_sleep)
         rospy.loginfo("下降夹爪")
-        self.move_arm_simple(theta1_c, theta2_c, place_z+0.195-origin_height, duration=3.0)
+        self.move_arm_simple(theta1_c, theta2_c, place_z+div-origin_height, duration=3.0)
         rospy.loginfo("打开夹爪")
         self.open_gripper(duration=3.0)
         # rospy.sleep(time_sleep)
         rospy.loginfo("抬起夹爪")
-        self.move_arm_simple(theta1_c, theta2_c, origin_height-place_z+0.195, duration=3.0)
+        self.move_arm_simple(theta1_c, theta2_c, origin_height-place_z+div, duration=3.0)
         rospy.loginfo("抓取放置任务完成")
     
     def arm_reset(self):
