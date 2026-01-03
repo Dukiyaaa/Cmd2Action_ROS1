@@ -83,6 +83,51 @@ class ArmController:
         """关节状态回调函数"""
         self.current_joint_state = msg
 
+    def get_gripper_roll_yaw(self):
+        """
+        获取 gripper_roll_link 在世界坐标系中的 yaw 角（弧度）
+        通过正向运动学计算：yaw = rotation1 + rotation2 + gripper_roll
+        
+        返回:
+            float: yaw 角度值（弧度），如果未获取到则返回 None
+        """
+        if self.current_joint_state is None:
+            rospy.logwarn("尚未接收到关节状态信息")
+            return None
+        
+        try:
+            # 获取各关节角度
+            rotation1_idx = self.current_joint_state.name.index('rotation1')
+            rotation2_idx = self.current_joint_state.name.index('rotation2')
+            gripper_roll_idx = self.current_joint_state.name.index('gripper_roll')
+            
+            rotation1 = self.current_joint_state.position[rotation1_idx]
+            rotation2 = self.current_joint_state.position[rotation2_idx]
+            gripper_roll = self.current_joint_state.position[gripper_roll_idx]
+            
+            # 计算 gripper_roll_link 的世界 yaw 角
+            world_yaw = rotation1 + rotation2 + gripper_roll
+            
+            return world_yaw
+        except ValueError:
+            rospy.logwarn("未找到所需关节")
+            return None
+        except IndexError:
+            rospy.logwarn("关节状态数据不完整")
+            return None
+
+    def align_gripper_roll(self):
+        """
+        对齐夹爪朝向：获取当前 yaw 角，然后旋转夹爪使其回到初始朝向（相对于世界坐标系为 0）
+        """
+        yaw = self.get_gripper_roll_yaw()
+        if yaw is not None:
+            rospy.loginfo("当前 gripper_roll yaw 角: %.3f rad (%.1f 度)" % (yaw, np.degrees(yaw)))
+            self.gripper_roll_pub.publish(Float64(-yaw))
+            rospy.loginfo("旋转夹爪以对齐初始朝向")
+        else:
+            rospy.loginfo("无法获取 gripper_roll yaw 角")
+
     def move_arm_simple(self, pos1, pos2, pos3, duration=3.0):
         """
         简单的手臂运动函数
@@ -119,11 +164,8 @@ class ArmController:
         
         if is_close:
             self.finger1_pub.publish(Float64(finger1))
-            rospy.sleep(0.5)
             self.finger2_pub.publish(Float64(finger2))
-            rospy.sleep(0.5)
             self.finger3_pub.publish(Float64(finger3))
-            rospy.sleep(0.5)
             self.finger4_pub.publish(Float64(finger4))
         else:
             self.finger1_pub.publish(Float64(finger1))
@@ -146,10 +188,8 @@ class ArmController:
         """初始化世界: 生成方块等"""
         rospy.loginfo("=== 初始化世界 ===")
 
-        # rospy.sleep(time_sleep)
-        
         # 打开夹爪
-        self.open_gripper(duration=2.0)
+        self.open_gripper(duration=1.5)
         rospy.loginfo("初始化完成!\n")
 
     def pick_and_place(self, pick_pos, place_pos):
@@ -164,14 +204,16 @@ class ArmController:
             return
         rospy.loginfo("前往抓取目标上方")
         self.move_arm_simple(theta1_c, theta2_c, d3_c, duration=3.0)
-        # rospy.sleep(time_sleep)
+
+        # 在夹爪移动到物体上方后，对齐夹爪朝向
+        self.align_gripper_roll()
+        
         rospy.loginfo("下降夹爪")
         self.move_arm_simple(theta1_c, theta2_c, pick_z+div-origin_height, duration=3.0)
         rospy.loginfo("闭合夹爪")
-        self.close_gripper(duration=3.0)
-        # rospy.sleep(time_sleep)
+        self.close_gripper(duration=1.0)
         rospy.loginfo("抬起")
-        self.move_arm_simple(theta1_c, theta2_c, origin_height-pick_z+div, duration=3.0)
+        self.move_arm_simple(theta1_c, theta2_c, origin_height-pick_z+div, duration=2.0)
 
         rospy.loginfo("前往放置位置上方")
         theta1_c, theta2_c, d3_c, reachable = inverse_kinematics(place_x, place_y, origin_height, elbow="down")
@@ -179,12 +221,12 @@ class ArmController:
             rospy.logwarn("放置位置不可达: (%.3f, %.3f, %.3f)" % (place_x, place_y, place_z))
             return
         self.move_arm_simple(theta1_c, theta2_c, d3_c, duration=3.0)
-        # rospy.sleep(time_sleep)
+         
         rospy.loginfo("下降夹爪")
         self.move_arm_simple(theta1_c, theta2_c, place_z+div-origin_height, duration=3.0)
         rospy.loginfo("打开夹爪")
-        self.open_gripper(duration=3.0)
-        # rospy.sleep(time_sleep)
+        self.open_gripper(duration=1.5)
+         
         rospy.loginfo("抬起夹爪")
         self.move_arm_simple(theta1_c, theta2_c, origin_height-place_z+div, duration=3.0)
         rospy.loginfo("抓取放置任务完成")
@@ -193,8 +235,13 @@ class ArmController:
         """手臂复位到初始位置"""
         rospy.loginfo("手臂复位到初始位置")
         self.move_arm_simple(0.0, 0.0, 0.0, duration=3.0)
-        # rospy.sleep(time_sleep)
-        self.open_gripper(duration=2.0)
+        
+        # 直接将 gripper_roll 复位到 0
+        rospy.loginfo("复位 gripper_roll 到初始角度")
+        self.gripper_roll_pub.publish(Float64(0.0))
+        rospy.sleep(1.0)
+        
+        self.open_gripper(duration=1.5)
         rospy.loginfo("手臂复位完成\n")
 
     def display_test_box(self, box_pos, box_size=(0.032, 0.032, 0.032), box_color=(0.2, 0.6, 0.9, 1.0), box_mass=0.01, box_name='test_box'):
@@ -232,7 +279,7 @@ def main():
         
         # 初始化世界
         controller.world_init()
-        
+
         # 进行5轮随机测试
         num_tests = 5
         rospy.loginfo("=== 开始 %d 轮随机测试 ===" % num_tests)

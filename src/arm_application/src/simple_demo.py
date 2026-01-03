@@ -172,9 +172,11 @@ def main():
         
         # 初始化世界
         controller.world_init()
-        controller.close_gripper()
+
+        # controller.close_gripper()
         rospy.loginfo("旋转夹爪")
         controller.gripper_roll_pub.publish(Float64(np.pi/4))
+
         # 这个坐标方块会与夹爪不平行，可用于测试
         # box_x = 1.2
         # box_y = 0.0
