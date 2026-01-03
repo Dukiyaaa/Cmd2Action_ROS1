@@ -138,10 +138,46 @@
             <material>Gazebo/White</material>
         </gazebo>
 
-        <joint name="finger1_joint" type="prismatic">
+        <!-- Roll joint for end-effector orientation about Z -->
+        <joint name="gripper_roll" type="revolute">
             <parent link="gripper_link"/>
+            <child link="gripper_roll_link"/>
+            <origin xyz="0 0 -0.2" rpy="0 0 0"/>
+            <axis xyz="0 0 1"/>
+            <limit effort="10" velocity="3.0" lower="-3.14" upper="3.14"/>
+            <dynamics damping="0.05" friction="0.02"/>
+        </joint>
+
+        <link name="gripper_roll_link">
+            <collision>
+                <origin xyz="0 0 0" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="0.01" radius="0.02"/>
+                </geometry>
+            </collision>
+            <visual>
+                <origin xyz="0 0 0" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="0.01" radius="0.02"/>
+                </geometry>
+                <material name="dark">
+                    <color rgba="0.0 0.0 0.0 1.0"/>
+                </material>
+            </visual>
+            <inertial>
+                <origin xyz="0 0 0" rpy="0 0 0"/>
+                <mass value="0.05"/>
+                <inertia ixx="1e-4" ixy="0.0" ixz="0.0" iyy="1e-4" iyz="0.0" izz="1e-4"/>
+            </inertial>
+        </link>
+        <gazebo reference="gripper_roll_link">
+            <material>Gazebo/Dark</material>
+        </gazebo>
+
+        <joint name="finger1_joint" type="prismatic">
+            <parent link="gripper_roll_link"/>
             <child link="finger1"/>
-            <origin xyz="0 -0.04 -0.22" rpy="0 0 0"/>
+            <origin xyz="0 -0.04 -0.02" rpy="0 0 0"/>
             <axis xyz="0 1 0"/>
             <limit effort="20" velocity="0.05" lower="0.0" upper="0.04"/>
             <dynamics damping="0.1" friction="0.1"/>
@@ -179,9 +215,9 @@
         </gazebo>
 
         <joint name="finger2_joint" type="prismatic">
-            <parent link="gripper_link"/>
+            <parent link="gripper_roll_link"/>
             <child link="finger2"/>
-            <origin xyz="0.04 0 -0.22" rpy="0 0 0"/>
+            <origin xyz="0.04 0 -0.02" rpy="0 0 0"/>
             <axis xyz="1 0 0"/>
             <limit effort="20" velocity="0.05" lower="-0.04" upper="0.0"/>
             <dynamics damping="0.1" friction="0.1"/>
@@ -219,9 +255,9 @@
         </gazebo>
 
         <joint name="finger3_joint" type="prismatic">
-            <parent link="gripper_link"/>
+            <parent link="gripper_roll_link"/>
             <child link="finger3"/>
-            <origin xyz="0 0.04 -0.22" rpy="0 0 0"/>
+            <origin xyz="0 0.04 -0.02" rpy="0 0 0"/>
             <axis xyz="0 1 0"/>
             <limit effort="20" velocity="0.05" lower="-0.04" upper="0.0"/>
             <dynamics damping="0.1" friction="0.1"/>
@@ -259,9 +295,9 @@
         </gazebo>
 
         <joint name="finger4_joint" type="prismatic">
-            <parent link="gripper_link"/>
+            <parent link="gripper_roll_link"/>
             <child link="finger4"/>
-            <origin xyz="-0.04 0 -0.22" rpy="0 0 0"/>
+            <origin xyz="-0.04 0 -0.02" rpy="0 0 0"/>
             <axis xyz="1 0 0"/>
             <limit effort="20" velocity="0.05" lower="0.0" upper="0.04"/>
             <dynamics damping="0.1" friction="0.1"/>

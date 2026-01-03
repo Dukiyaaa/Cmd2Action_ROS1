@@ -28,6 +28,6 @@
 
     <!-- start controllers (position control for two arms + prismatic) -->
     <node name="controller_spawner" pkg="controller_manager" type="spawner" output="screen"
-        args="joint_state_controller rotation1_position_controller rotation2_position_controller gripper_position_controller finger1_position_controller finger2_position_controller finger3_position_controller finger4_position_controller"/>
+        args="joint_state_controller rotation1_position_controller rotation2_position_controller gripper_position_controller gripper_roll_position_controller finger1_position_controller finger2_position_controller finger3_position_controller finger4_position_controller"/>
 
 </launch>

@@ -172,48 +172,50 @@ def main():
         
         # 初始化世界
         controller.world_init()
-        
+        controller.close_gripper()
+        rospy.loginfo("旋转夹爪")
+        controller.gripper_roll_pub.publish(Float64(np.pi/4))
         # 这个坐标方块会与夹爪不平行，可用于测试
         # box_x = 1.2
         # box_y = 0.0
         # box_z = 0.05
 
-        box_x = 1.8
-        box_y = 0.0
-        box_z = 0.05
+        # box_x = 1.8
+        # box_y = 0.0
+        # box_z = 0.05
         
-        # 随机生成放置位置 (x: 0.3-1.2, y: -0.8-0.8, z: 0.05)
-        place_x = 0.0
-        place_y = -1.2
-        place_z = box_z
+        # # 随机生成放置位置 (x: 0.3-1.2, y: -0.8-0.8, z: 0.05)
+        # place_x = 0.0
+        # place_y = -1.2
+        # place_z = box_z
         
-        rospy.loginfo("方块位置: (%.3f, %.3f, %.3f)" % (box_x, box_y, box_z))
-        rospy.loginfo("放置位置: (%.3f, %.3f, %.3f)" % (place_x, place_y, place_z))
+        # rospy.loginfo("方块位置: (%.3f, %.3f, %.3f)" % (box_x, box_y, box_z))
+        # rospy.loginfo("放置位置: (%.3f, %.3f, %.3f)" % (place_x, place_y, place_z))
         
-        # 生成方块名称
-        box_name = 'test_box'
+        # # 生成方块名称
+        # box_name = 'test_box'
         
-        # 显示方块
-        success = controller.display_test_box(
-            box_pos=(box_x, box_y, box_z),
-            box_name=box_name
-        )
+        # # 显示方块
+        # success = controller.display_test_box(
+        #     box_pos=(box_x, box_y, box_z),
+        #     box_name=box_name
+        # )
         
-        if not success:
-            rospy.logerr("方块生成失败，结束程序")
-            return
+        # if not success:
+        #     rospy.logerr("方块生成失败，结束程序")
+        #     return
         
-        # 执行抓取和放置
-        controller.pick_and_place(
-            pick_pos=(box_x, box_y, box_z),
-            place_pos=(place_x, place_y, place_z)
-        )
+        # # 执行抓取和放置
+        # controller.pick_and_place(
+        #     pick_pos=(box_x, box_y, box_z),
+        #     place_pos=(place_x, place_y, place_z)
+        # )
         
-        # 手臂复位
-        controller.arm_reset()
+        # # 手臂复位
+        # controller.arm_reset()
         
-        # 删除方块
-        controller.box.delete_entity(box_name)
+        # # 删除方块
+        # controller.box.delete_entity(box_name)
         rospy.spin()
         
     except rospy.ROSInterruptException:

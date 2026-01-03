@@ -40,7 +40,11 @@ class ArmController:
             Float64, 
             queue_size=10
         )
-        
+        self.gripper_roll_pub = rospy.Publisher(
+            '/gripper_roll_position_controller/command', 
+            Float64, 
+            queue_size=10
+        )
         # 创建夹爪四指控制发布器
         self.finger1_pub = rospy.Publisher(
             '/finger1_position_controller/command', 
