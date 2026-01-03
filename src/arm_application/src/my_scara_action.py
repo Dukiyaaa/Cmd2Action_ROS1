@@ -164,7 +164,7 @@ class ArmController:
         self.move_arm_simple(theta1_c, theta2_c, pick_z+0.195-origin_height, duration=3.0)
         rospy.loginfo("闭合夹爪")
         self.close_gripper(duration=3.0)
-        rospy.sleep(time_sleep)
+        # rospy.sleep(time_sleep)
         rospy.loginfo("抬起")
         self.move_arm_simple(theta1_c, theta2_c, origin_height-pick_z+0.195, duration=3.0)
 

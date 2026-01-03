@@ -167,3 +167,5 @@ class BoxSpawner:
         except rospy.ServiceException as e:
             rospy.logerr('删除实体失败: %s' % e)
             return False
+
+__all__ = ['BoxSpawner']

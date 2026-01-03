@@ -5,6 +5,14 @@
 目的: 学习如何通过 ROS1 话题控制关节位置
 """
 
+import sys
+import os
+
+# 添加源代码目录到 Python 路径
+script_dir = os.path.dirname(os.path.abspath(__file__))
+if script_dir not in sys.path:
+    sys.path.insert(0, script_dir)
+
 import rospy
 import numpy as np
 from std_msgs.msg import Float64
@@ -12,6 +20,7 @@ from sensor_msgs.msg import JointState
 from gazebo_box_display import BoxSpawner
 import time
 from my_kinematics import inverse_kinematics
+from my_scara_action import ArmController
 
 box_x = 1.0
 box_y = 1.0
@@ -159,44 +168,52 @@ class SimpleController:
     
 def main():
     try:
-        controller = SimpleController()
+        controller = ArmController()
         
         # 初始化世界
         controller.world_init()
         
-        theta1_c, theta2_c, d3_c, reachable = inverse_kinematics(box_x, box_y, box_z+0.195, elbow="down")
-        rospy.loginfo("逆运动学计算结果: theta1=%.3f, theta2=%.3f, d3=%.3f, reachable=%s"
-                     % (theta1_c, theta2_c, d3_c, reachable))
-        # # Demo 1: 移动手臂到抓取位置
-        rospy.loginfo("=== Demo 1: 移动手臂到抓取位置 (下降到方块高度) ===")
-        # controller.move_arm_simple(np.pi/2, 0.0, -0.255, duration=3.0)
-        controller.move_arm_simple(theta1_c, theta2_c, d3_c, duration=3.0)
+        # 这个坐标方块会与夹爪不平行，可用于测试
+        # box_x = 1.2
+        # box_y = 0.0
+        # box_z = 0.05
 
+        box_x = 1.8
+        box_y = 0.0
+        box_z = 0.05
         
-        rospy.loginfo("到达抓取位置，等待稳定...")
-        rospy.sleep(2.0)
-        rospy.loginfo("位置稳定!\n")
+        # 随机生成放置位置 (x: 0.3-1.2, y: -0.8-0.8, z: 0.05)
+        place_x = 0.0
+        place_y = -1.2
+        place_z = box_z
         
-        # Demo 2: 关闭夹爪夹取方块
-        rospy.loginfo("=== Demo 2: 准备夹取方块 ===")
-        controller.close_gripper(duration=3.0)
+        rospy.loginfo("方块位置: (%.3f, %.3f, %.3f)" % (box_x, box_y, box_z))
+        rospy.loginfo("放置位置: (%.3f, %.3f, %.3f)" % (place_x, place_y, place_z))
         
-        rospy.loginfo("等待物理引擎稳定接触和grasp_fix插件附着...")
-        rospy.sleep(3.0)
-        rospy.loginfo("夹取完成!\n")
+        # 生成方块名称
+        box_name = 'test_box'
         
-        # Demo 3: 抬起方块
-        rospy.loginfo("=== Demo 3: 抬起方块 ===")
-        controller.move_arm_simple(theta1_c, theta2_c, -0.0, duration=4.0)
-        rospy.loginfo("抬起完成！\n")
+        # 显示方块
+        success = controller.display_test_box(
+            box_pos=(box_x, box_y, box_z),
+            box_name=box_name
+        )
         
-        # theta1_c, theta2_c, d3_c, reachable = inverse_kinematics(0.0, 0.0, 0, elbow="down")
-        controller.move_arm_simple(0.0, 0.0, 0.0, duration=3.0)
-        rospy.loginfo("手臂回到初始位置！\n")
-
-        controller.open_gripper(duration=3.0)
+        if not success:
+            rospy.logerr("方块生成失败，结束程序")
+            return
         
-        rospy.loginfo("=== 演示完成，按 Ctrl+C 退出 ===")
+        # 执行抓取和放置
+        controller.pick_and_place(
+            pick_pos=(box_x, box_y, box_z),
+            place_pos=(place_x, place_y, place_z)
+        )
+        
+        # 手臂复位
+        controller.arm_reset()
+        
+        # 删除方块
+        controller.box.delete_entity(box_name)
         rospy.spin()
         
     except rospy.ROSInterruptException:
