@@ -1,9 +1,19 @@
 <?xml version="1.0"?>
 <launch>
+    <arg name="model_path" default="yolov8n.pt"/>
+    <arg name="conf" default="0.45"/>
+    <arg name="class_filter" default="[]"/>
+    <arg name="device" default="auto"/>
+
     <!-- 启动视觉节点 -->
     <node pkg="arm_vision" type="vision_node.py" name="vision_node" output="screen">
         <remap from="/camera/color/image_raw" to="/camera/color/image_raw"/>
         <remap from="/camera/depth/image_rect_raw" to="/camera/depth/image_rect_raw"/>
         <remap from="/camera/color/camera_info" to="/camera/color/camera_info"/>
+
+        <param name="model_path" value="$(arg model_path)"/>
+        <param name="conf" value="$(arg conf)"/>
+        <param name="class_filter" value="$(arg class_filter)"/>
+        <param name="device" value="$(arg device)"/>
     </node>
 </launch>
