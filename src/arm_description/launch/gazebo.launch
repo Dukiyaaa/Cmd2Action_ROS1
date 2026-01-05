@@ -9,7 +9,7 @@
 
     <!-- load robot_description by expanding xacro -->
     <param name="robot_description" command="xacro $(arg model)"/>
-
+    
     <!-- load ros_control controllers -->
     <rosparam file="$(find arm_description)/config/controllers.yaml" command="load"/>
 
@@ -21,6 +21,9 @@
         <arg name="gui" value="true"/>
         <arg name="headless" value="false"/>
     </include>
+
+    <!-- 启动 robot_state_publisher 用于发布 TF 和状态 -->
+    <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher"/>
 
     <!-- spawn the robot into Gazebo using robot_description -->
     <node name="spawn_urdf" pkg="gazebo_ros" type="spawn_model" output="screen"
