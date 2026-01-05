@@ -213,7 +213,7 @@ class ArmController:
         rospy.loginfo("闭合夹爪")
         self.close_gripper(duration=1.0)
         rospy.loginfo("抬起")
-        self.move_arm_simple(theta1_c, theta2_c, origin_height-pick_z+div, duration=2.0)
+        self.move_arm_simple(theta1_c, theta2_c, origin_height-pick_z+div, duration=3.0)
 
         rospy.loginfo("前往放置位置上方")
         theta1_c, theta2_c, d3_c, reachable = inverse_kinematics(place_x, place_y, origin_height, elbow="down")

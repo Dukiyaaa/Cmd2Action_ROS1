@@ -34,7 +34,7 @@ class VisionNode:
         self.rgb_image = None
         self.depth_image = None
         
-        # 订阅摄像头话题（模拟 D435i 的话题名）
+        # 订阅摄像头话题（模拟 D435i 的话题名） 这些话题是系统自动发布的
         rospy.Subscriber('/camera/color/image_raw', Image, self._rgb_callback)
         rospy.Subscriber('/camera/depth/image_rect_raw', Image, self._depth_callback)
         rospy.Subscriber('/camera/color/camera_info', CameraInfo, self._camera_info_callback)
