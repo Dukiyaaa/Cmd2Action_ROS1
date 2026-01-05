@@ -112,6 +112,7 @@ class VisionNode:
         except Exception as e:
             rospy.logwarn(f"TF transform failed: {e}")
             return None
+        
     # 直接从世界坐标到像素坐标，中间包含世界坐标转图像坐标的部分过程
     def world_to_pixel_coordinate(self, x_world, y_world, z_world):
         ps = PointStamped()
@@ -120,47 +121,34 @@ class VisionNode:
         ps.point.x, ps.point.y, ps.point.z = x_world, y_world, z_world
 
         try:
-            # 从 world 变换到 camera_link
+            # 从 world 变换到 camera_color_optical_frame
             transform = self.tf_buffer.lookup_transform(
                 'camera_color_optical_frame', 'world', rospy.Time(0), rospy.Duration(1.0)
             )
             cam_ps = tf2_geometry_msgs.do_transform_point(ps, transform)
+            # 图像转像素坐标
             x_pixel = (cam_ps.point.x * self.fx) / cam_ps.point.z + self.cx
             y_pixel = (cam_ps.point.y * self.fy) / cam_ps.point.z + self.cy
-            return (x_pixel, y_pixel)
+            z_pixel = cam_ps.point.z
+            return (x_pixel, y_pixel, z_pixel)
         except Exception as e:
             rospy.logwarn(f"TF transform failed: {e}")
             return None
-    def image_to_cam_coordinate(self, u, v, depth_value):
-        if self.fx is None:
-            rospy.logwarn("Camera not calibrated yet")
-            return None       
-        
-        z = float(depth_value)
-
-        # 像素坐标 → 相机坐标
-        x = (u - self.cx) * (z / self.fx)
-        y = (v - self.cy) * (z / self.fy)
-        
-        # 返回相机坐标系下的 3D 点
-        # 注意：需要根据相机在机械臂的安装位置进行坐标变换（后续可用 TF）
-        return (x, y, z)
-
-    def image_to_world_coordinate(self, u, v, depth_value):
-        """
-        将像素坐标 + 深度转换为世界坐标world frame。
-        先用相机内参反投影到相机光学坐标系，再通过 TF 变换到 world。
-        """
-        cam_point = self.image_to_cam_coordinate(u, v, depth_value)
-        if cam_point is None:
-            return None
+    
+    # 像素坐标转回世界坐标
+    def pixel_to_world_coordinate(self, u, v, depth):
+        # 像素坐标转相机坐标
+        x_cam = (u - self.cx) * depth / self.fx
+        y_cam = (v - self.cy) * depth / self.fy
+        z_cam = depth
 
         ps = PointStamped()
-        ps.header.stamp = self.depth_header.stamp if self.depth_header else rospy.Time(0)
-        ps.header.frame_id = 'camera_color_optical_frame'
-        ps.point.x, ps.point.y, ps.point.z = cam_point
+        ps.header.stamp = rospy.Time(0)
+        ps.header.frame_id = 'camera_color_optical_frame' 
+        ps.point.x, ps.point.y, ps.point.z = x_cam, y_cam, z_cam
 
         try:
+            # 从 camera_link 变换到 world
             transform = self.tf_buffer.lookup_transform(
                 'world', 'camera_color_optical_frame', rospy.Time(0), rospy.Duration(1.0)
             )
@@ -169,7 +157,6 @@ class VisionNode:
         except Exception as e:
             rospy.logwarn(f"TF transform failed: {e}")
             return None
-    
     def process_frame(self):
         # 每次进入该函数时，会获取当前最新图像并处理
         with self.lock:
@@ -190,13 +177,17 @@ class VisionNode:
         # if world_set is not None:
         #     rospy.loginfo(f"World coords at (320,240) depth 1.5m: {world_set}")
 
-        cam_set_back = self.world_to_cam_coordinate(1.2, 0.0, 0.05)
-        if cam_set_back is not None:
-            rospy.loginfo(f"World to Cam coords: {cam_set_back}")
+        # cam_set_back = self.world_to_image_coordinate(1.2, 0.0, 0.05)
+        # if cam_set_back is not None:
+        #     rospy.loginfo(f"World to Cam coords: {cam_set_back}")
 
         image_set_back = self.world_to_pixel_coordinate(1.2, 0.0, 0.05)
         if image_set_back is not None:
             rospy.loginfo(f"World to Pixel coords: {image_set_back}")
+
+        world_set_back = self.pixel_to_world_coordinate(image_set_back[0], image_set_back[1], image_set_back[2])
+        if world_set_back is not None:
+            rospy.loginfo(f"Pixel to World coords: {world_set_back}")
         # 显示图像
         cv2.imshow('Depth Image', depth)
         cv2.imshow('RGB Image', rgb)
