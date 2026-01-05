@@ -13,6 +13,6 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package()
 
 # Python 脚本不需要编译，但需要设置权限
-catkin_install_python(PROGRAMS src/vision_node.py
+catkin_install_python(PROGRAMS src/my_vision.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
