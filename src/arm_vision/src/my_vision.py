@@ -205,13 +205,13 @@ class VisionNode:
         # if cam_set_back is not None:
         #     rospy.loginfo(f"World to Cam coords: {cam_set_back}")
 
-        # image_set_back = self.world_to_pixel_coordinate(0.8, 0.65, 0.05)
-        # if image_set_back is not None:
-        #     rospy.loginfo(f"World to Pixel coords: {image_set_back}")
+        image_set_back = self.world_to_pixel_coordinate(0.8, 0.65, 0.05)
+        if image_set_back is not None:
+            rospy.loginfo(f"World to Pixel coords: {image_set_back}")
 
-        # world_set_back = self.pixel_to_world_coordinate(image_set_back[0], image_set_back[1], image_set_back[2])
-        # if world_set_back is not None:
-        #     rospy.loginfo(f"Pixel to World coords: {world_set_back}")
+        world_set_back = self.pixel_to_world_coordinate(image_set_back[0], image_set_back[1], image_set_back[2])
+        if world_set_back is not None:
+            rospy.loginfo(f"Pixel to World coords: {world_set_back}")
         # # 显示图像
         # cv2.imshow('Depth Image', depth)
         cv2.imshow('RGB Image', rgb)
