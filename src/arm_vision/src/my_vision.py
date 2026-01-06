@@ -55,6 +55,10 @@ class VisionNode:
         else:
             self.device = device_param
         self.class_filter = set(rospy.get_param('~class_filter', []))  # e.g. [0] for person, [] for all
+
+        # 测试用：从文件读取一帧 RGB/Depth，而不使用订阅的实时话题
+        self.test_rgb_path = rospy.get_param('~test_rgb_path', None)
+        self.test_depth_path = rospy.get_param('~test_depth_path', None)
         
         print(f"[DEBUG] Loading YOLO model: {self.model_path} on device: {self.device}", flush=True)
         try:
@@ -189,6 +193,23 @@ class VisionNode:
             # 采用拷贝，避免在处理过程中图像被修改
             rgb = self.rgb_image.copy()
             depth = self.depth_image.copy()
+
+        # 如果提供了测试图片路径，则优先使用文件中的图像（便于离线调试）
+        if self.test_rgb_path not in (None, '', 'none', 'None'):
+            test_rgb = cv2.imread(self.test_rgb_path, cv2.IMREAD_COLOR)
+            if test_rgb is None:
+                rospy.logwarn_throttle(5.0, f"Failed to read test_rgb_path: {self.test_rgb_path}")
+                return
+            rospy.loginfo_throttle(5.0, f"Using test RGB image from: {self.test_rgb_path}")
+            rgb = test_rgb
+
+        if self.test_depth_path not in (None, '', 'none', 'None'):
+            test_depth = cv2.imread(self.test_depth_path, cv2.IMREAD_UNCHANGED)
+            if test_depth is None:
+                rospy.logwarn_throttle(5.0, f"Failed to read test_depth_path: {self.test_depth_path}")
+                return
+            rospy.loginfo_throttle(5.0, f"Using test depth image from: {self.test_depth_path}")
+            depth = test_depth
         
         #urdf，camera_fixed_joint的旋转导致图像需要旋转180度
         rgb = cv2.rotate(rgb, cv2.ROTATE_180)
@@ -205,13 +226,13 @@ class VisionNode:
         # if cam_set_back is not None:
         #     rospy.loginfo(f"World to Cam coords: {cam_set_back}")
 
-        image_set_back = self.world_to_pixel_coordinate(0.8, 0.65, 0.05)
-        if image_set_back is not None:
-            rospy.loginfo(f"World to Pixel coords: {image_set_back}")
+        # image_set_back = self.world_to_pixel_coordinate(0.8, 0.65, 0.05)
+        # if image_set_back is not None:
+        #     rospy.loginfo(f"World to Pixel coords: {image_set_back}")
 
-        world_set_back = self.pixel_to_world_coordinate(image_set_back[0], image_set_back[1], image_set_back[2])
-        if world_set_back is not None:
-            rospy.loginfo(f"Pixel to World coords: {world_set_back}")
+        # world_set_back = self.pixel_to_world_coordinate(image_set_back[0], image_set_back[1], image_set_back[2])
+        # if world_set_back is not None:
+        #     rospy.loginfo(f"Pixel to World coords: {world_set_back}")
         # # 显示图像
         # cv2.imshow('Depth Image', depth)
         cv2.imshow('RGB Image', rgb)
@@ -247,6 +268,7 @@ class VisionNode:
         boxes = result.boxes
         # 后续处理放在CPU上进行
         xyxy = boxes.xyxy.cpu().numpy() #框的左上、右下坐标
+        rospy.loginfo_throttle(5.0, f"Detections: {xyxy.shape[0]} boxes")
         scores = boxes.conf.cpu().numpy()
         classes = boxes.cls.cpu().numpy().astype(int)
 
@@ -260,6 +282,7 @@ class VisionNode:
             # 取中心点
             u = int((box[0] + box[2]) / 2)
             v = int((box[1] + box[3]) / 2)
+
 
             if u < 0 or v < 0 or u >= depth.shape[1] or v >= depth.shape[0]:
                 continue
@@ -289,10 +312,6 @@ class VisionNode:
                 cv2.rectangle(rgb, (int(box[0]), int(box[1])), (int(box[2]), int(box[3])), (0, 255, 0), 2)
                 label = f"{cls_id}:{score:.2f}"
                 cv2.putText(rgb, label, (int(box[0]), int(box[1]) - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
-
-        # 显示RGB叠加框 
-        cv2.imshow('RGB Image', rgb)
-        cv2.waitKey(1)
 
     def run(self):
         rate = rospy.Rate(10)  # 10 Hz

@@ -4,6 +4,8 @@
     <arg name="conf" default="0.45"/>
     <arg name="class_filter" default="[]"/>
     <arg name="device" default="auto"/>
+    <arg name="test_rgb_path" default=""/>
+    <arg name="test_depth_path" default=""/>
 
     <!-- 启动视觉节点 -->
     <node pkg="arm_vision" type="my_vision.py" name="vision_node" output="screen">
@@ -15,5 +17,7 @@
         <param name="conf" value="$(arg conf)"/>
         <param name="class_filter" value="$(arg class_filter)"/>
         <param name="device" value="$(arg device)"/>
+        <param name="test_rgb_path" value="$(arg test_rgb_path)"/>
+        <param name="test_depth_path" value="$(arg test_depth_path)"/>
     </node>
 </launch>
