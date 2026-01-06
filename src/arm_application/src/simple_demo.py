@@ -178,15 +178,15 @@ def main():
         # controller.gripper_roll_pub.publish(Float64(np.pi/4))
 
         # 这个坐标方块会与夹爪不平行，可用于测试
-        box_x = 1.2
-        box_y = 0.0
+        box_x = 0.8
+        box_y = 0.65
         box_z = 0.05
 
         # box_x = 1.8
         # box_y = 0.0
         # box_z = 0.05
         
-        # # 随机生成放置位置 (x: 0.3-1.2, y: -0.8-0.8, z: 0.05)
+        # 随机生成放置位置 (x: 0.3-1.2, y: -0.8-0.8, z: 0.05)
         # place_x = 0.0
         # place_y = -1.2
         # place_z = box_z
@@ -203,13 +203,13 @@ def main():
             box_name=box_name
         )
         
-        # if not success:
-        #     rospy.logerr("方块生成失败，结束程序")
-        #     return
+        if not success:
+            rospy.logerr("方块生成失败，结束程序")
+            return
         
-        # # 执行抓取和放置
+        # 执行抓取和放置
         # controller.pick_and_place(
-        #     pick_pos=(box_x, box_y, box_z),
+        #     pick_pos=(0.7999999999999989, 0.6500000000000005, 0.049999999999998934),
         #     place_pos=(place_x, place_y, place_z)
         # )
         

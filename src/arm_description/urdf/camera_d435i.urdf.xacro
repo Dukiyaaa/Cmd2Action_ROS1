@@ -35,7 +35,7 @@
             <parent link="world"/>
             <child link="camera_link"/>
             <!-- 放在世界上方，斜135度俯视工作区 -->
-            <origin xyz="3.0 0 2.0" rpy="0 2.356 0"/>
+            <origin xyz="2.0 0 1.5" rpy="0 2.356 0"/>
         </joint>
         
         <!-- 光学 frame 相对于相机的关节 -->

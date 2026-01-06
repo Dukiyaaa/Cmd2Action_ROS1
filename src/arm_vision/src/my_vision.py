@@ -44,6 +44,30 @@ class VisionNode:
         self.tf_buffer = tf2_ros.Buffer()
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
 
+        # 加入YOLO
+        print("[DEBUG] Loading params...", flush=True)
+        # 通过launch文件获取参数 逗号后面是默认参数
+        self.model_path = rospy.get_param('~model_path', 'yolov8n.pt')
+        self.conf_thres = rospy.get_param('~conf', 0.45)
+        device_param = rospy.get_param('~device', None)
+        if device_param in (None, '', 'auto'):
+            self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        else:
+            self.device = device_param
+        self.class_filter = set(rospy.get_param('~class_filter', []))  # e.g. [0] for person, [] for all
+        
+        print(f"[DEBUG] Loading YOLO model: {self.model_path} on device: {self.device}", flush=True)
+        try:
+            self.model = YOLO(self.model_path)
+            self.model.to(self.device)
+            print(f"[DEBUG] Model loaded successfully", flush=True)
+        except Exception as e:
+            print(f"[ERROR] Failed to load YOLO model: {e}", flush=True)
+            raise
+        rospy.loginfo(f'YOLOv8 loaded: {self.model_path} on {self.device}')
+        # 发布检测到的物体位置
+        self.detected_objects_pub = rospy.Publisher('/detected_objects', PoseStamped, queue_size=10)
+
         # 订阅三个话题，用于获得rgb图像、深度图、相机内参 注意这里的话题名字是在urdf中自己定义的
         rospy.Subscriber('/camera/color/image_raw', Image, self._rgb_callback)
         rospy.Subscriber('/camera/depth/image_rect_raw', Image, self._depth_callback)
@@ -181,15 +205,92 @@ class VisionNode:
         # if cam_set_back is not None:
         #     rospy.loginfo(f"World to Cam coords: {cam_set_back}")
 
-        image_set_back = self.world_to_pixel_coordinate(1.2, 0.0, 0.05)
-        if image_set_back is not None:
-            rospy.loginfo(f"World to Pixel coords: {image_set_back}")
+        # image_set_back = self.world_to_pixel_coordinate(0.8, 0.65, 0.05)
+        # if image_set_back is not None:
+        #     rospy.loginfo(f"World to Pixel coords: {image_set_back}")
 
-        world_set_back = self.pixel_to_world_coordinate(image_set_back[0], image_set_back[1], image_set_back[2])
-        if world_set_back is not None:
-            rospy.loginfo(f"Pixel to World coords: {world_set_back}")
-        # 显示图像
-        cv2.imshow('Depth Image', depth)
+        # world_set_back = self.pixel_to_world_coordinate(image_set_back[0], image_set_back[1], image_set_back[2])
+        # if world_set_back is not None:
+        #     rospy.loginfo(f"Pixel to World coords: {world_set_back}")
+        # # 显示图像
+        # cv2.imshow('Depth Image', depth)
+        cv2.imshow('RGB Image', rgb)
+        cv2.waitKey(1)
+        
+        # 确保 RGB 是 uint8 且为 3 通道
+        if rgb.dtype != np.uint8:
+            if rgb.max() <= 1.0:
+                rgb = (rgb * 255).astype(np.uint8)
+            else:
+                rgb = rgb.astype(np.uint8)
+        
+        if len(rgb.shape) == 2:  # 如果是灰度图，转为 BGR
+            rgb = cv2.cvtColor(rgb, cv2.COLOR_GRAY2BGR)
+        elif rgb.shape[2] == 4:  # RGBA 转 BGR
+            rgb = cv2.cvtColor(rgb, cv2.COLOR_RGBA2BGR)
+        
+        # 用模型推理这帧图像
+        try:
+            results = self.model(rgb, conf=self.conf_thres, verbose=False, device=self.device)
+            result = results[0]
+        except Exception as e:
+            rospy.logwarn_throttle(5.0, f"YOLO inference error: {e}")
+            import traceback
+            traceback.print_exc()
+            return
+
+        # Ultrayltics 的result对象自动带boxes这个属性 这个属性是监测框，内含xyxy,conf,cls
+        if result is None or result.boxes is None or len(result.boxes) == 0:
+            rospy.loginfo_throttle(5.0, "No detections")
+            return
+
+        boxes = result.boxes
+        # 后续处理放在CPU上进行
+        xyxy = boxes.xyxy.cpu().numpy() #框的左上、右下坐标
+        scores = boxes.conf.cpu().numpy()
+        classes = boxes.cls.cpu().numpy().astype(int)
+
+        detections = []
+        for box, score, cls_id in zip(xyxy, scores, classes):
+            if self.class_filter and cls_id not in self.class_filter:
+                continue
+            if score < self.conf_thres:
+                continue
+            
+            # 取中心点
+            u = int((box[0] + box[2]) / 2)
+            v = int((box[1] + box[3]) / 2)
+
+            if u < 0 or v < 0 or u >= depth.shape[1] or v >= depth.shape[0]:
+                continue
+            
+            # 通过取出来的坐标去深度图里匹配对应的深度值
+            depth_value = depth[v, u]
+            point = self.pixel_to_world_coordinate(u, v, depth_value)
+            if point is None:
+                continue
+
+            pose = PoseStamped()
+            if self.depth_header:
+                pose.header = self.depth_header
+            else:
+                pose.header.stamp = rospy.Time.now()
+                pose.header.frame_id = 'camera_link'
+            pose.pose.position.x, pose.pose.position.y, pose.pose.position.z = point
+            pose.pose.orientation.w = 1.0 # 朝向默认不变
+            self.detected_objects_pub.publish(pose)
+            detections.append((u, v, cls_id, score)) # 用于可视化
+
+        # Debug overlay
+        if detections:
+            for (box, score, cls_id) in zip(xyxy, scores, classes):
+                if score < self.conf_thres or (self.class_filter and cls_id not in self.class_filter):
+                    continue
+                cv2.rectangle(rgb, (int(box[0]), int(box[1])), (int(box[2]), int(box[3])), (0, 255, 0), 2)
+                label = f"{cls_id}:{score:.2f}"
+                cv2.putText(rgb, label, (int(box[0]), int(box[1]) - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+
+        # 显示RGB叠加框 
         cv2.imshow('RGB Image', rgb)
         cv2.waitKey(1)
 
