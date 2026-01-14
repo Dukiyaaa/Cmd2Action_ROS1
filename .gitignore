@@ -2,6 +2,7 @@
 build/
 devel/
 install/
+arm_vision_dataset
 .log/
 
 # Catkin tools
