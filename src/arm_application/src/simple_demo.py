@@ -18,6 +18,7 @@ import numpy as np
 from std_msgs.msg import Float64
 from sensor_msgs.msg import JointState
 from gazebo_box_display import BoxSpawner
+from gazebo_cylinder_display import CylinderSpawner
 import time
 from my_kinematics import inverse_kinematics
 from my_scara_action import ArmController
@@ -170,9 +171,23 @@ def main():
     try:
         controller = ArmController()
         
-        # 初始化世界
+        # 初始化世界（生成测试方块等）
         controller.world_init()
 
+        # 生成一个测试圆柱体，方便调试视觉与抓取
+        cyl_name = 'test_cylinder'
+        cyl_x = 0.8
+        cyl_y = -0.65
+        cyl_z = 0.05
+
+        success = controller.display_test_cylinder(
+            cyl_pos=(cyl_x, cyl_y, cyl_z),
+            cyl_name=cyl_name
+        )
+        
+        if not success:
+            rospy.logerr("圆柱体生成失败，结束程序")
+            return
         # controller.close_gripper()
         # rospy.loginfo("旋转夹爪")
         # controller.gripper_roll_pub.publish(Float64(np.pi/4))
@@ -187,9 +202,9 @@ def main():
         # box_z = 0.05
         
         # 随机生成放置位置 (x: 0.3-1.2, y: -0.8-0.8, z: 0.05)
-        # place_x = 0.0
-        # place_y = -1.2
-        # place_z = box_z
+        place_x = 0.8
+        place_y = -0.65
+        place_z = box_z+0.032
         
         # rospy.loginfo("方块位置: (%.3f, %.3f, %.3f)" % (box_x, box_y, box_z))
         # rospy.loginfo("放置位置: (%.3f, %.3f, %.3f)" % (place_x, place_y, place_z))
@@ -208,16 +223,17 @@ def main():
             return
         
         # 执行抓取和放置
-        # controller.pick_and_place(
-        #     pick_pos=(0.7999999999999989, 0.6500000000000005, 0.049999999999998934),
-        #     place_pos=(place_x, place_y, place_z)
-        # )
+        controller.pick_and_place(
+            pick_pos=(0.7999999999999989, 0.6500000000000005, 0.049999999999998934),
+            place_pos=(place_x, place_y, place_z)
+        )
         
         # # 手臂复位
-        # controller.arm_reset()
+        controller.arm_reset()
         
         # # 删除方块
-        # controller.box.delete_entity(box_name)
+        controller.box.delete_entity(box_name)
+        controller.cylinder.delete_entity(cyl_name)
         rospy.spin()
         
     except rospy.ROSInterruptException:

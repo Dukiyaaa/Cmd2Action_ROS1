@@ -14,6 +14,7 @@ import numpy as np
 from std_msgs.msg import Float64
 from sensor_msgs.msg import JointState
 from gazebo_box_display import BoxSpawner
+from gazebo_cylinder_display import CylinderSpawner
 import time
 import random
 from my_kinematics import inverse_kinematics
@@ -67,8 +68,9 @@ class ArmController:
             queue_size=10
         )
         
-        # Gazebo 方块生成工具
+        # Gazebo 方块/圆柱体生成工具
         self.box = BoxSpawner()
+        self.cylinder = CylinderSpawner()
         
         # 当前关节状态
         self.current_joint_state = None
@@ -273,6 +275,48 @@ class ArmController:
             rospy.loginfo("方块 '%s' 生成成功，位置在夹取范围内" % box_name)
         return success
 
+    def display_test_cylinder(self, cyl_pos, radius=0.015, length=0.032,
+                              cyl_color=(0.2, 0.8, 0.2, 1.0),
+                              cyl_mass=0.01,
+                              cyl_name='test_cylinder'):
+        """
+        在机械臂可达范围内生成一个测试圆柱体
+
+        参数:
+            cyl_pos: (x, y, z) 圆柱体中心位置
+            radius: 半径 (m)
+            length: 高度/长度 (m)
+            cyl_color: 颜色 (r, g, b, a)
+            cyl_mass: 质量 (kg)
+            cyl_name: 模型名称
+        """
+        cyl_x, cyl_y, cyl_z = cyl_pos
+        r, g, b, a = cyl_color
+
+        # 检查圆柱体位置是否在机械臂夹取范围内（与方块相同策略）
+        origin_height = 0.5
+        theta1_c, theta2_c, d3_c, reachable = inverse_kinematics(cyl_x, cyl_y, origin_height, elbow="down")
+        if not reachable:
+            rospy.logwarn("圆柱体位置不在机械臂夹取范围内: (%.3f, %.3f, %.3f)" % (cyl_x, cyl_y, cyl_z))
+            rospy.logwarn("无法生成圆柱体 '%s'" % cyl_name)
+            return False
+
+        rospy.loginfo("生成测试圆柱体...")
+        success = self.cylinder.spawn_cylinder(
+            name=cyl_name,
+            x=cyl_x, y=cyl_y, z=cyl_z,
+            yaw=0.0,
+            radius=radius,
+            length=length,
+            color_rgba=(r, g, b, a),
+            mass=cyl_mass,
+            reference_frame='world'
+        )
+
+        if success:
+            rospy.loginfo("圆柱体 '%s' 生成成功，位置在夹取范围内" % cyl_name)
+        return success
+
 def main():
     try:
         controller = ArmController()
@@ -287,13 +331,13 @@ def main():
         for i in range(num_tests):
             rospy.loginfo("\n=== 第 %d/%d 轮测试 ===" % (i+1, num_tests))
             
-            # 随机生成方块位置 (x: 0.3-1.2, y: -0.8-0.8, z: 0.05)
-            box_x = random.uniform(0.3, 1.2)
+            # 随机生成方块位置 (x: 0.3-1.0, y: -0.8-0.8, z: 0.05)
+            box_x = random.uniform(0.3, 1.0)
             box_y = random.uniform(-0.8, 0.8)
             box_z = 0.05
             
-            # 随机生成放置位置 (x: 0.3-1.2, y: -0.8-0.8, z: 0.05)
-            place_x = random.uniform(0.3, 1.2)
+            # 随机生成放置位置 (x: 0.3-1.0, y: -0.8-0.8, z: 0.05)
+            place_x = random.uniform(0.3, 1.0)
             place_y = random.uniform(-0.8, 0.8)
             place_z = box_z
             
