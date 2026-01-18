@@ -222,18 +222,18 @@ def main():
             rospy.logerr("方块生成失败，结束程序")
             return
         
-        # 执行抓取和放置
-        controller.pick_and_place(
-            pick_pos=(0.7999999999999989, 0.6500000000000005, 0.049999999999998934),
-            place_pos=(place_x, place_y, place_z)
-        )
+        # # 执行抓取和放置
+        # controller.pick_and_place(
+        #     pick_pos=(0.7999999999999989, 0.6500000000000005, 0.049999999999998934),
+        #     place_pos=(place_x, place_y, place_z)
+        # )
         
-        # # 手臂复位
-        controller.arm_reset()
+        # # # 手臂复位
+        # controller.arm_reset()
         
-        # # 删除方块
-        controller.box.delete_entity(box_name)
-        controller.cylinder.delete_entity(cyl_name)
+        # # # 删除方块
+        # controller.box.delete_entity(box_name)
+        # controller.cylinder.delete_entity(cyl_name)
         rospy.spin()
         
     except rospy.ROSInterruptException:

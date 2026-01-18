@@ -4,6 +4,8 @@
 import rospy
 import numpy as np
 import cv2
+import os
+import rospkg
 from sensor_msgs.msg import Image, CameraInfo
 from cv_bridge import CvBridge
 from geometry_msgs.msg import PoseStamped
@@ -47,7 +49,11 @@ class VisionNode:
         # 加入YOLO
         print("[DEBUG] Loading params...", flush=True)
         # 通过launch文件获取参数 逗号后面是默认参数
-        self.model_path = rospy.get_param('~model_path', 'yolov8n.pt')
+        # 获取包路径，构建相对路径
+        rospack = rospkg.RosPack()
+        package_path = rospack.get_path('arm_vision')
+        default_model_path = os.path.join(package_path, 'model', 'best.pt')
+        self.model_path = rospy.get_param('~model_path', default_model_path)
         self.conf_thres = rospy.get_param('~conf', 0.45)
         device_param = rospy.get_param('~device', None)
         if device_param in (None, '', 'auto'):
@@ -233,11 +239,6 @@ class VisionNode:
         # world_set_back = self.pixel_to_world_coordinate(image_set_back[0], image_set_back[1], image_set_back[2])
         # if world_set_back is not None:
         #     rospy.loginfo(f"Pixel to World coords: {world_set_back}")
-        # # 显示图像
-        # cv2.imshow('Depth Image', depth)
-        cv2.imshow('RGB Image', rgb)
-        cv2.waitKey(1)
-        
         # 确保 RGB 是 uint8 且为 3 通道
         if rgb.dtype != np.uint8:
             if rgb.max() <= 1.0:
@@ -263,6 +264,9 @@ class VisionNode:
         # Ultrayltics 的result对象自动带boxes这个属性 这个属性是监测框，内含xyxy,conf,cls
         if result is None or result.boxes is None or len(result.boxes) == 0:
             rospy.loginfo_throttle(5.0, "No detections")
+            # 即使没有检测到物体，也显示图像
+            cv2.imshow('RGB Image', rgb)
+            cv2.waitKey(1)
             return
 
         boxes = result.boxes
@@ -274,22 +278,26 @@ class VisionNode:
 
         detections = []
         for box, score, cls_id in zip(xyxy, scores, classes):
-            if self.class_filter and cls_id not in self.class_filter:
-                continue
+            # if self.class_filter and cls_id not in self.class_filter:
+            #     rospy.loginfo(f"Class {cls_id} not in filter")
+            #     continue
             if score < self.conf_thres:
+                rospy.loginfo(f"Score {score} less than conf_thres")
                 continue
             
             # 取中心点
             u = int((box[0] + box[2]) / 2)
             v = int((box[1] + box[3]) / 2)
 
-
+            # rospy.loginfo(f"u: {u}, v: {v}")
             if u < 0 or v < 0 or u >= depth.shape[1] or v >= depth.shape[0]:
                 continue
             
             # 通过取出来的坐标去深度图里匹配对应的深度值
-            depth_value = depth[v, u]
+            # depth_value = depth[v, u]
+            depth_value = 2.934
             point = self.pixel_to_world_coordinate(u, v, depth_value)
+            rospy.loginfo(f"Pixel to World coords: {point}")
             if point is None:
                 continue
 
@@ -302,16 +310,25 @@ class VisionNode:
             pose.pose.position.x, pose.pose.position.y, pose.pose.position.z = point
             pose.pose.orientation.w = 1.0 # 朝向默认不变
             self.detected_objects_pub.publish(pose)
-            detections.append((u, v, cls_id, score)) # 用于可视化
+            detections.append((box, score, cls_id)) # 用于可视化，保存完整的检测信息
 
-        # Debug overlay
-        if detections:
-            for (box, score, cls_id) in zip(xyxy, scores, classes):
-                if score < self.conf_thres or (self.class_filter and cls_id not in self.class_filter):
-                    continue
-                cv2.rectangle(rgb, (int(box[0]), int(box[1])), (int(box[2]), int(box[3])), (0, 255, 0), 2)
-                label = f"{cls_id}:{score:.2f}"
-                cv2.putText(rgb, label, (int(box[0]), int(box[1]) - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+        # 绘制检测框和标签
+        for (box, score, cls_id) in detections:
+            # 绘制矩形框
+            x1, y1, x2, y2 = int(box[0]), int(box[1]), int(box[2]), int(box[3])
+            cv2.rectangle(rgb, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            # 显示类别ID和置信度
+            label = f"Class {cls_id}: {score:.2f}"
+            # 获取文本大小以调整标签位置
+            (text_width, text_height), baseline = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
+            # 绘制标签背景
+            cv2.rectangle(rgb, (x1, y1 - text_height - baseline - 5), (x1 + text_width, y1), (0, 255, 0), -1)
+            # 绘制标签文本
+            cv2.putText(rgb, label, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
+        
+        # 显示绘制了检测框的图像
+        cv2.imshow('RGB Image', rgb)
+        cv2.waitKey(1)
 
     def run(self):
         rate = rospy.Rate(10)  # 10 Hz

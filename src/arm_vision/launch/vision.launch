@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <launch>
-    <arg name="model_path" default="yolov8n.pt"/>
+    <arg name="model_path" default="/home/dukiya/Desktop/Cmd2Action/src/arm_vision/model/best.pt"/>
     <arg name="conf" default="0.45"/>
     <arg name="class_filter" default="[]"/>
     <arg name="device" default="auto"/>
