@@ -239,6 +239,9 @@ class VisionNode:
         # world_set_back = self.pixel_to_world_coordinate(image_set_back[0], image_set_back[1], image_set_back[2])
         # if world_set_back is not None:
         #     rospy.loginfo(f"Pixel to World coords: {world_set_back}")
+
+        # return
+        
         # 确保 RGB 是 uint8 且为 3 通道
         if rgb.dtype != np.uint8:
             if rgb.max() <= 1.0:
@@ -295,7 +298,7 @@ class VisionNode:
             
             # 通过取出来的坐标去深度图里匹配对应的深度值
             # depth_value = depth[v, u]
-            depth_value = 2.934
+            depth_value = 1.25
             point = self.pixel_to_world_coordinate(u, v, depth_value)
             rospy.loginfo(f"Pixel to World coords: {point}")
             if point is None:

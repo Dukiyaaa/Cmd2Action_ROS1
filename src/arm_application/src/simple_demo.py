@@ -17,6 +17,7 @@ import rospy
 import numpy as np
 from std_msgs.msg import Float64
 from sensor_msgs.msg import JointState
+from geometry_msgs.msg import PoseStamped
 from gazebo_box_display import BoxSpawner
 from gazebo_cylinder_display import CylinderSpawner
 import time
@@ -27,152 +28,86 @@ box_x = 1.0
 box_y = 1.0
 box_z = 0.05
 
-class SimpleController:
+class ObjectDetector:
+    """
+    物体检测订阅器
+    只负责订阅检测话题并保存检测结果，不发布任何控制命令
+    实际的抓取动作由 ArmController 执行
+    """
     def __init__(self):
-        """初始化控制器"""
-        rospy.init_node('simple_controller', anonymous=True)
+        """初始化检测器"""
+        # 订阅检测到的物体话题
+        rospy.Subscriber('/detected_objects', PoseStamped, self._detect_callback)
         
-        # 创建各关节位置控制发布器
-        self.rotation1_pub = rospy.Publisher(
-            '/rotation1_position_controller/command', 
-            Float64, 
-            queue_size=10
-        )
-        self.rotation2_pub = rospy.Publisher(
-            '/rotation2_position_controller/command', 
-            Float64, 
-            queue_size=10
-        )
-        self.gripper_pub = rospy.Publisher(
-            '/gripper_position_controller/command', 
-            Float64, 
-            queue_size=10
-        )
+        # 检测到的物体坐标（世界坐标系）
+        self.detected_object_pos = None
+        self.is_processing = False  # 标记是否正在处理检测结果
         
-        # 创建夹爪四指控制发布器
-        self.finger1_pub = rospy.Publisher(
-            '/finger1_position_controller/command', 
-            Float64, 
-            queue_size=10
-        )
-        self.finger2_pub = rospy.Publisher(
-            '/finger2_position_controller/command', 
-            Float64, 
-            queue_size=10
-        )
-        self.finger3_pub = rospy.Publisher(
-            '/finger3_position_controller/command', 
-            Float64, 
-            queue_size=10
-        )
-        self.finger4_pub = rospy.Publisher(
-            '/finger4_position_controller/command', 
-            Float64, 
-            queue_size=10
-        )
-        
-        # Gazebo 方块生成工具
-        self.box = BoxSpawner()
-        
-        # 当前关节状态
-        self.current_joint_state = None
-        rospy.Subscriber('/joint_states', JointState, self._joint_state_callback)
-        
-        rospy.loginfo('控制器已初始化')
+        rospy.loginfo('[ObjectDetector] 检测器已初始化，等待检测物体...')
         
         # 等待话题建立连接
         rospy.sleep(1.0)
 
-    def _joint_state_callback(self, msg):
-        """关节状态回调函数"""
-        self.current_joint_state = msg
+    def _detect_callback(self, msg):
+        """检测到的物体回调函数 - 直接提取坐标"""
+        # 如果正在处理，跳过新的检测
+        if self.is_processing:
+            return
+        
+        # 从 PoseStamped 消息中直接提取世界坐标
+        pos_x = msg.pose.position.x
+        pos_y = msg.pose.position.y
+        pos_z = msg.pose.position.z
+        
+        rospy.loginfo(f"[检测回调] 检测到物体位置: x={pos_x:.3f}, y={pos_y:.3f}, z={pos_z:.3f}")
+        
+        # 保存检测到的物体位置
+        self.detected_object_pos = (pos_x, pos_y, pos_z)
 
-    def move_arm_simple(self, pos1, pos2, pos3, duration=3.0):
+    def process_detected_object(self, arm_controller, place_pos=None):
         """
-        简单的手臂运动函数
+        处理检测到的物体：执行抓取和放置
         
-        参数说明:
-            pos1: rotation1 关节位置 (单位: 弧度 rad)
-            pos2: rotation2 关节位置 (单位: 弧度 rad)
-            pos3: gripper_joint 关节位置 (单位: 米 m)
-            duration: 运动时间 (秒)
+        参数:
+            arm_controller: ArmController 实例，用于执行抓取动作
+            place_pos: 放置位置 (x, y, z)，如果为None则使用默认位置
         """
-        rospy.loginfo("发送命令: pos1=%.3f, pos2=%.3f, pos3=%.3f" % (pos1, pos2, pos3))
+        if self.detected_object_pos is None:
+            rospy.logwarn("[处理检测] 没有检测到物体")
+            return False
         
-        # 发布目标位置
-        self.rotation1_pub.publish(Float64(pos1))
-        self.rotation2_pub.publish(Float64(pos2))
-        self.gripper_pub.publish(Float64(pos3))
+        pick_pos = self.detected_object_pos
         
-        # 等待运动完成
-        rospy.sleep(duration)
-
-    def control_gripper(self, finger1, finger2, finger3, finger4, duration=1.0):
-        """
-        控制夹爪
+        # 如果没有指定放置位置，使用默认位置
+        if place_pos is None:
+            place_pos = (0.8, -0.65, pick_pos[2] + 0.032)  # 默认放置位置
         
-        参数说明:
-            finger1: finger1_joint 位置 (0.0 ~ 0.02)
-            finger2: finger2_joint 位置 (-0.02 ~ 0.0)
-            finger3: finger3_joint 位置 (-0.02 ~ 0.0)
-            finger4: finger4_joint 位置 (0.0 ~ 0.02)
-            duration: 运动时间
-        """
-        rospy.loginfo("发送夹爪命令: [%.3f, %.3f, %.3f, %.3f]" 
-                     % (finger1, finger2, finger3, finger4))
+        rospy.loginfo(f"[处理检测] 开始执行抓取任务")
+        rospy.loginfo(f"[处理检测] 抓取位置: ({pick_pos[0]:.3f}, {pick_pos[1]:.3f}, {pick_pos[2]:.3f})")
+        rospy.loginfo(f"[处理检测] 放置位置: ({place_pos[0]:.3f}, {place_pos[1]:.3f}, {place_pos[2]:.3f})")
         
-        self.finger1_pub.publish(Float64(finger1))
-        self.finger2_pub.publish(Float64(finger2))
-        self.finger3_pub.publish(Float64(finger3))
-        self.finger4_pub.publish(Float64(finger4))
-        
-        rospy.sleep(duration)
-
-    def open_gripper(self, duration=1.0):
-        """打开夹爪"""
-        rospy.loginfo("打开夹爪...")
-        self.control_gripper(-0.02, 0.02, 0.02, -0.02, duration)
-
-    def close_gripper(self, duration=1.0):
-        """关闭夹爪"""
-        rospy.loginfo("关闭夹爪...")
-        self.control_gripper(0.02, -0.02, -0.02, 0.02, duration)
-
-    def world_init(self):
-        """初始化世界: 生成方块等"""
-        rospy.loginfo("=== 初始化世界 ===")
-        
-        # 生成方块
-        rospy.loginfo("生成测试方块...")
-        success = self.box.spawn_box(
-            name='test_box',
-            x=box_x, y=box_y, z=box_z,
-            yaw=0.0,
-            sx=0.032, sy=0.032, sz=0.032,
-            color_rgba=(0.2, 0.6, 0.9, 1.0),
-            mass=0.01,
-            reference_frame='world'
-        )
-        
-        if success:
-            rospy.loginfo("方块生成成功!")
-        else:
-            rospy.logwarn("方块生成可能失败")
-        
-        rospy.sleep(1.0)
-        
-        # 打开夹爪
-        self.open_gripper(duration=2.0)
-        rospy.sleep(1.0)
-        rospy.loginfo("初始化完成!\n")
+        try:
+            # 调用 pick_and_place 执行抓取和放置
+            arm_controller.pick_and_place(pick_pos, place_pos)
+            rospy.loginfo("[处理检测] 抓取任务完成")
+            # 清空检测结果，避免重复执行
+            self.detected_object_pos = None
+            return True
+        except Exception as e:
+            rospy.logerr(f"[处理检测] 抓取任务失败: {e}")
+            return False
 
     
 def main():
     try:
-        controller = ArmController()
+        # 创建 ArmController 用于执行抓取动作（它会初始化 ROS 节点）
+        arm_controller = ArmController()
+        
+        # 创建 ObjectDetector 用于订阅检测话题（只订阅，不发布控制命令）
+        object_detector = ObjectDetector()
         
         # 初始化世界（生成测试方块等）
-        controller.world_init()
+        arm_controller.world_init()
 
         # 生成一个测试圆柱体，方便调试视觉与抓取
         cyl_name = 'test_cylinder'
@@ -180,7 +115,7 @@ def main():
         cyl_y = -0.65
         cyl_z = 0.05
 
-        success = controller.display_test_cylinder(
+        success = arm_controller.display_test_cylinder(
             cyl_pos=(cyl_x, cyl_y, cyl_z),
             cyl_name=cyl_name
         )
@@ -188,32 +123,22 @@ def main():
         if not success:
             rospy.logerr("圆柱体生成失败，结束程序")
             return
-        # controller.close_gripper()
-        # rospy.loginfo("旋转夹爪")
-        # controller.gripper_roll_pub.publish(Float64(np.pi/4))
 
         # 这个坐标方块会与夹爪不平行，可用于测试
         box_x = 0.8
         box_y = 0.65
         box_z = 0.05
-
-        # box_x = 1.8
-        # box_y = 0.0
-        # box_z = 0.05
         
         # 随机生成放置位置 (x: 0.3-1.2, y: -0.8-0.8, z: 0.05)
-        place_x = 0.8
+        place_x = 0.0
         place_y = -0.65
-        place_z = box_z+0.032
+        place_z = box_z + 0.032
         
-        # rospy.loginfo("方块位置: (%.3f, %.3f, %.3f)" % (box_x, box_y, box_z))
-        # rospy.loginfo("放置位置: (%.3f, %.3f, %.3f)" % (place_x, place_y, place_z))
-        
-        # # 生成方块名称
+        # 生成方块名称
         box_name = 'test_box'
         
         # 显示方块
-        success = controller.display_test_box(
+        success = arm_controller.display_test_box(
             box_pos=(box_x, box_y, box_z),
             box_name=box_name
         )
@@ -222,19 +147,30 @@ def main():
             rospy.logerr("方块生成失败，结束程序")
             return
         
-        # # 执行抓取和放置
-        # controller.pick_and_place(
-        #     pick_pos=(0.7999999999999989, 0.6500000000000005, 0.049999999999998934),
-        #     place_pos=(place_x, place_y, place_z)
-        # )
+        rospy.loginfo("=== 等待检测物体 ===")
+        rospy.loginfo("视觉节点会发布检测到的物体坐标到 /detected_objects 话题")
+        rospy.loginfo("检测到物体后会自动执行抓取和放置任务")
         
-        # # # 手臂复位
-        # controller.arm_reset()
-        
-        # # # 删除方块
-        # controller.box.delete_entity(box_name)
-        # controller.cylinder.delete_entity(cyl_name)
-        rospy.spin()
+        # 主循环：定期检查是否有检测到的物体需要处理
+        rate = rospy.Rate(1)  # 1 Hz
+        while not rospy.is_shutdown():
+            # 如果检测到物体且不在处理中，则处理它
+            if object_detector.detected_object_pos is not None and not object_detector.is_processing:
+                object_detector.is_processing = True
+                try:
+                    # 处理检测到的物体
+                    success = object_detector.process_detected_object(
+                        arm_controller=arm_controller,
+                        place_pos=(place_x, place_y, place_z)
+                    )
+                    if success:
+                        rospy.loginfo("=== 抓取任务完成，继续等待下一个物体 ===")
+                except Exception as e:
+                    rospy.logerr(f"处理检测物体时出错: {e}")
+                finally:
+                    object_detector.is_processing = False
+            
+            rate.sleep()
         
     except rospy.ROSInterruptException:
         rospy.loginfo("程序被用户中断")
