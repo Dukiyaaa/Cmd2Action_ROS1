@@ -19,7 +19,6 @@ from std_msgs.msg import Float64
 from sensor_msgs.msg import JointState
 from geometry_msgs.msg import PoseStamped
 from gazebo_box_display import BoxSpawner
-from gazebo_cylinder_display import CylinderSpawner
 import time
 from my_kinematics import inverse_kinematics
 from my_scara_action import ArmController
@@ -90,6 +89,7 @@ class ObjectDetector:
             # 调用 pick_and_place 执行抓取和放置
             arm_controller.pick_and_place(pick_pos, place_pos)
             rospy.loginfo("[处理检测] 抓取任务完成")
+            arm_controller.arm_reset()
             # 清空检测结果，避免重复执行
             self.detected_object_pos = None
             return True
@@ -109,68 +109,81 @@ def main():
         # 初始化世界（生成测试方块等）
         arm_controller.world_init()
 
-        # 生成一个测试圆柱体，方便调试视觉与抓取
-        cyl_name = 'test_cylinder'
-        cyl_x = 0.8
-        cyl_y = -0.65
-        cyl_z = 0.05
+        # 固定放置位置
+        place_pos = (0.0, -1.8, 0.05)
 
-        success = arm_controller.display_test_cylinder(
-            cyl_pos=(cyl_x, cyl_y, cyl_z),
-            cyl_name=cyl_name
-        )
-        
-        if not success:
-            rospy.logerr("圆柱体生成失败，结束程序")
-            return
-
-        # 这个坐标方块会与夹爪不平行，可用于测试
-        box_x = 0.8
-        box_y = 0.65
+        # 随机生成 5 轮方块位置：只生成方块，不生成圆柱
+        # 说明：这里生成的方块位置仅用于 Gazebo 展示；实际抓取坐标以视觉话题为准
         box_z = 0.05
-        
-        # 随机生成放置位置 (x: 0.3-1.2, y: -0.8-0.8, z: 0.05)
-        place_x = 0.0
-        place_y = -0.65
-        place_z = box_z + 0.032
-        
-        # 生成方块名称
-        box_name = 'test_box'
-        
-        # 显示方块
-        success = arm_controller.display_test_box(
-            box_pos=(box_x, box_y, box_z),
-            box_name=box_name
-        )
-        
-        if not success:
-            rospy.logerr("方块生成失败，结束程序")
-            return
-        
-        rospy.loginfo("=== 等待检测物体 ===")
-        rospy.loginfo("视觉节点会发布检测到的物体坐标到 /detected_objects 话题")
-        rospy.loginfo("检测到物体后会自动执行抓取和放置任务")
-        
-        # 主循环：定期检查是否有检测到的物体需要处理
-        rate = rospy.Rate(1)  # 1 Hz
-        while not rospy.is_shutdown():
-            # 如果检测到物体且不在处理中，则处理它
-            if object_detector.detected_object_pos is not None and not object_detector.is_processing:
-                object_detector.is_processing = True
-                try:
-                    # 处理检测到的物体
-                    success = object_detector.process_detected_object(
-                        arm_controller=arm_controller,
-                        place_pos=(place_x, place_y, place_z)
-                    )
-                    if success:
-                        rospy.loginfo("=== 抓取任务完成，继续等待下一个物体 ===")
-                except Exception as e:
-                    rospy.logerr(f"处理检测物体时出错: {e}")
-                finally:
-                    object_detector.is_processing = False
-            
-            rate.sleep()
+        min_x, max_x = 0.3, 1.0
+        min_y, max_y = -0.8, 0.8
+
+        rospy.loginfo("=== 将随机生成 5 轮方块，并等待视觉输出坐标后抓取 ===")
+        rospy.loginfo(f"=== 固定放置位置: ({place_pos[0]:.3f}, {place_pos[1]:.3f}, {place_pos[2]:.3f}) ===")
+
+        for i in range(5):
+            if rospy.is_shutdown():
+                break
+
+            # 每轮生成一个新方块（不同名称）
+            box_name = f"test_box_{i}"
+
+            # 尝试随机生成可达位置（display_test_box 内部也会再检查可达性）
+            max_attempts = 20
+            success = False
+            for attempt in range(max_attempts):
+                box_x = float(np.random.uniform(min_x, max_x))
+                box_y = float(np.random.uniform(min_y, max_y))
+                success = arm_controller.display_test_box(
+                    box_pos=(box_x, box_y, box_z),
+                    box_name=box_name
+                )
+                if success:
+                    break
+
+            if not success:
+                rospy.logerr(f"[Round {i+1}/5] 生成方块失败（尝试 {max_attempts} 次仍不可达），跳过该轮")
+                continue
+
+            rospy.loginfo(f"[Round {i+1}/5] 方块已生成: name={box_name}, pos=({box_x:.3f}, {box_y:.3f}, {box_z:.3f})")
+
+            # 等待视觉模型推理出的坐标（/detected_objects）
+            # 用时间戳防止拿到上一轮的旧坐标：先清空，再等待新值
+            object_detector.detected_object_pos = None
+            wait_timeout_s = 15.0
+            start_t = time.time()
+            rate = rospy.Rate(10)  # 10 Hz 更快响应
+
+            rospy.loginfo(f"[Round {i+1}/5] 等待视觉坐标（超时 {wait_timeout_s:.1f}s）...")
+            while not rospy.is_shutdown() and object_detector.detected_object_pos is None:
+                if time.time() - start_t > wait_timeout_s:
+                    rospy.logwarn(f"[Round {i+1}/5] 等待视觉坐标超时，跳过该轮")
+                    arm_controller.box.delete_entity(box_name)
+                    break
+                rate.sleep()
+
+            if rospy.is_shutdown():
+                break
+
+            if object_detector.detected_object_pos is None:
+                continue
+
+            # 执行抓取放置
+            object_detector.is_processing = True
+            try:
+                ok = object_detector.process_detected_object(
+                    arm_controller=arm_controller,
+                    place_pos=place_pos
+                )
+                if ok:
+                    rospy.loginfo(f"[Round {i+1}/5] 抓取放置完成，继续下一轮")
+                else:
+                    rospy.logwarn(f"[Round {i+1}/5] 抓取放置失败，继续下一轮")
+            finally:
+                object_detector.is_processing = False
+                arm_controller.box.delete_entity(box_name)
+        rospy.loginfo("=== 5 轮完成（或提前结束），进入 spin 保持节点运行 ===")
+        rospy.spin()
         
     except rospy.ROSInterruptException:
         rospy.loginfo("程序被用户中断")
