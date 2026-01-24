@@ -9,7 +9,7 @@ import rospkg
 from sensor_msgs.msg import Image, CameraInfo
 from cv_bridge import CvBridge
 from geometry_msgs.msg import PoseStamped
-from arm_vision.msg import DetectedObject
+from arm_vision.msg import DetectedObject,DetectedObjectPool
 from ultralytics import YOLO
 import torch
 import threading
@@ -76,8 +76,8 @@ class VisionNode:
             print(f"[ERROR] Failed to load YOLO model: {e}", flush=True)
             raise
         rospy.loginfo(f'YOLOv8 loaded: {self.model_path} on {self.device}')
-        # 发布检测到的物体位置（包含位姿、类别ID和置信度）
-        self.detected_objects_pub = rospy.Publisher('/detected_objects', DetectedObject, queue_size=10)
+        # 发布检测到的物体池（包含位姿、类别ID和置信度）
+        self.detected_objects_pub = rospy.Publisher('/detected_objects', DetectedObjectPool, queue_size=10)
 
         # 订阅三个话题，用于获得rgb图像、深度图、相机内参 注意这里的话题名字是在urdf中自己定义的
         rospy.Subscriber('/camera/color/image_raw', Image, self._rgb_callback)
@@ -281,6 +281,7 @@ class VisionNode:
         classes = boxes.cls.cpu().numpy().astype(int)
 
         detections = []
+        detected_objects = []  # 存 DetectedObject 实例
         for box, score, cls_id in zip(xyxy, scores, classes):
             # if self.class_filter and cls_id not in self.class_filter:
             #     rospy.loginfo(f"Class {cls_id} not in filter")
@@ -312,13 +313,21 @@ class VisionNode:
                 detected_obj.pose.header = self.depth_header
             else:
                 detected_obj.pose.header.stamp = rospy.Time.now()
-                detected_obj.pose.header.frame_id = 'camera_link'
+                detected_obj.pose.header.frame_id = 'world'
             detected_obj.pose.pose.position.x, detected_obj.pose.pose.position.y, detected_obj.pose.pose.position.z = point
             detected_obj.pose.pose.orientation.w = 1.0 # 朝向默认不变
             detected_obj.class_id = int(cls_id)
             detected_obj.confidence = float(score)
-            self.detected_objects_pub.publish(detected_obj)
+            # self.detected_objects_pub.publish(detected_obj)
             detections.append((box, score, cls_id)) # 用于可视化，保存完整的检测信息
+            detected_objects.append(detected_obj)
+
+        if detected_objects:
+            pool_msg = DetectedObjectPool()
+            pool_msg.header.stamp = rospy.Time.now()
+            pool_msg.header.frame_id = 'world'
+            pool_msg.objects = detected_objects
+            self.detected_objects_pub.publish(pool_msg)
 
         # 绘制检测框和标签
         for (box, score, cls_id) in detections:

@@ -149,39 +149,39 @@ def main():
 
             # 等待视觉模型推理出的坐标（/detected_objects）
             # 用时间戳防止拿到上一轮的旧坐标：先清空，再等待新值
-            object_detector.detected_object_pos = None
-            wait_timeout_s = 15.0
-            start_t = time.time()
-            rate = rospy.Rate(10)  # 10 Hz 更快响应
+            # object_detector.detected_object_pos = None
+            # wait_timeout_s = 15.0
+            # start_t = time.time()
+            # rate = rospy.Rate(10)  # 10 Hz 更快响应
 
-            rospy.loginfo(f"[Round {i+1}/5] 等待视觉坐标（超时 {wait_timeout_s:.1f}s）...")
-            while not rospy.is_shutdown() and object_detector.detected_object_pos is None:
-                if time.time() - start_t > wait_timeout_s:
-                    rospy.logwarn(f"[Round {i+1}/5] 等待视觉坐标超时，跳过该轮")
-                    arm_controller.box.delete_entity(box_name)
-                    break
-                rate.sleep()
+            # rospy.loginfo(f"[Round {i+1}/5] 等待视觉坐标（超时 {wait_timeout_s:.1f}s）...")
+            # while not rospy.is_shutdown() and object_detector.detected_object_pos is None:
+            #     if time.time() - start_t > wait_timeout_s:
+            #         rospy.logwarn(f"[Round {i+1}/5] 等待视觉坐标超时，跳过该轮")
+            #         arm_controller.box.delete_entity(box_name)
+            #         break
+            #     rate.sleep()
 
-            if rospy.is_shutdown():
-                break
+            # if rospy.is_shutdown():
+            #     break
 
-            if object_detector.detected_object_pos is None:
-                continue
+            # if object_detector.detected_object_pos is None:
+            #     continue
 
-            # 执行抓取放置
-            object_detector.is_processing = True
-            try:
-                ok = object_detector.process_detected_object(
-                    arm_controller=arm_controller,
-                    place_pos=place_pos
-                )
-                if ok:
-                    rospy.loginfo(f"[Round {i+1}/5] 抓取放置完成，继续下一轮")
-                else:
-                    rospy.logwarn(f"[Round {i+1}/5] 抓取放置失败，继续下一轮")
-            finally:
-                object_detector.is_processing = False
-                arm_controller.box.delete_entity(box_name)
+            # # 执行抓取放置
+            # object_detector.is_processing = True
+            # try:
+            #     ok = object_detector.process_detected_object(
+            #         arm_controller=arm_controller,
+            #         place_pos=place_pos
+            #     )
+            #     if ok:
+            #         rospy.loginfo(f"[Round {i+1}/5] 抓取放置完成，继续下一轮")
+            #     else:
+            #         rospy.logwarn(f"[Round {i+1}/5] 抓取放置失败，继续下一轮")
+            # finally:
+            #     object_detector.is_processing = False
+            #     arm_controller.box.delete_entity(box_name)
         rospy.loginfo("=== 5 轮完成（或提前结束），进入 spin 保持节点运行 ===")
         rospy.spin()
         
