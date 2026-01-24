@@ -9,6 +9,7 @@ import rospkg
 from sensor_msgs.msg import Image, CameraInfo
 from cv_bridge import CvBridge
 from geometry_msgs.msg import PoseStamped
+from arm_vision.msg import DetectedObject
 from ultralytics import YOLO
 import torch
 import threading
@@ -75,8 +76,8 @@ class VisionNode:
             print(f"[ERROR] Failed to load YOLO model: {e}", flush=True)
             raise
         rospy.loginfo(f'YOLOv8 loaded: {self.model_path} on {self.device}')
-        # 发布检测到的物体位置
-        self.detected_objects_pub = rospy.Publisher('/detected_objects', PoseStamped, queue_size=10)
+        # 发布检测到的物体位置（包含位姿、类别ID和置信度）
+        self.detected_objects_pub = rospy.Publisher('/detected_objects', DetectedObject, queue_size=10)
 
         # 订阅三个话题，用于获得rgb图像、深度图、相机内参 注意这里的话题名字是在urdf中自己定义的
         rospy.Subscriber('/camera/color/image_raw', Image, self._rgb_callback)
@@ -304,15 +305,19 @@ class VisionNode:
             if point is None:
                 continue
 
-            pose = PoseStamped()
+            # 创建自定义消息，包含位姿、类别ID和置信度
+            detected_obj = DetectedObject()
+            detected_obj.pose = PoseStamped()
             if self.depth_header:
-                pose.header = self.depth_header
+                detected_obj.pose.header = self.depth_header
             else:
-                pose.header.stamp = rospy.Time.now()
-                pose.header.frame_id = 'camera_link'
-            pose.pose.position.x, pose.pose.position.y, pose.pose.position.z = point
-            pose.pose.orientation.w = 1.0 # 朝向默认不变
-            self.detected_objects_pub.publish(pose)
+                detected_obj.pose.header.stamp = rospy.Time.now()
+                detected_obj.pose.header.frame_id = 'camera_link'
+            detected_obj.pose.pose.position.x, detected_obj.pose.pose.position.y, detected_obj.pose.pose.position.z = point
+            detected_obj.pose.pose.orientation.w = 1.0 # 朝向默认不变
+            detected_obj.class_id = int(cls_id)
+            detected_obj.confidence = float(score)
+            self.detected_objects_pub.publish(detected_obj)
             detections.append((box, score, cls_id)) # 用于可视化，保存完整的检测信息
 
         # 绘制检测框和标签

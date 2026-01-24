@@ -8,9 +8,26 @@ find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   cv_bridge
   image_transport
+  message_generation
 )
 
-catkin_package()
+## 添加消息文件
+add_message_files(
+  FILES
+  DetectedObject.msg
+)
+
+## 生成消息
+generate_messages(
+  DEPENDENCIES
+  std_msgs
+  sensor_msgs
+  geometry_msgs
+)
+
+catkin_package(
+  CATKIN_DEPENDS message_runtime
+)
 
 # Python 脚本不需要编译，但需要设置权限
 catkin_install_python(PROGRAMS src/my_vision.py src/object_data_collector.py
