@@ -10,6 +10,24 @@ project(arm_application)
 find_package(catkin REQUIRED COMPONENTS
   rospy
   std_msgs
+  geometry_msgs
+  message_generation
+)
+
+## 添加服务文件
+add_service_files(
+  FILES
+  AgentCommands.srv
+)
+
+## 生成消息
+generate_messages(
+  DEPENDENCIES
+  std_msgs
+  geometry_msgs
+)
+catkin_package(
+  CATKIN_DEPENDS rospy std_msgs geometry_msgs message_runtime
 )
 
 ## System dependencies are found with CMake's conventions
@@ -101,12 +119,6 @@ find_package(catkin REQUIRED COMPONENTS
 ## LIBRARIES: libraries you create in this project that dependent projects also need
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
-catkin_package(
-#  INCLUDE_DIRS include
-#  LIBRARIES arm_application
-#  CATKIN_DEPENDS rospy std_msgs
-#  DEPENDS system_lib
-)
 
 ###########
 ## Build ##
@@ -163,6 +175,8 @@ catkin_install_python(PROGRAMS
   src/my_kinematics.py
   src/gazebo_box_display.py
   src/simple_demo.py
+  src/scara_controller.py
+  src/task_agent.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 

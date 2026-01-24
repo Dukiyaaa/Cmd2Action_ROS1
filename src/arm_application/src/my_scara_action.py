@@ -23,7 +23,7 @@ time_sleep = 1.0
 class ArmController:
     def __init__(self):
         """初始化控制器"""
-        rospy.init_node('arm_controller', anonymous=True)
+        # rospy.init_node('arm_controller', anonymous=True)
         
         # 创建各关节位置控制发布器
         self.rotation1_pub = rospy.Publisher(

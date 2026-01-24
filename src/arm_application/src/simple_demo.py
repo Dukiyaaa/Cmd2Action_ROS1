@@ -101,6 +101,7 @@ class ObjectDetector:
 def main():
     try:
         # 创建 ArmController 用于执行抓取动作（它会初始化 ROS 节点）
+        rospy.init_node('simple_demo')
         arm_controller = ArmController()
         
         # 创建 ObjectDetector 用于订阅检测话题（只订阅，不发布控制命令）
@@ -118,34 +119,49 @@ def main():
         min_x, max_x = 0.3, 1.0
         min_y, max_y = -0.8, 0.8
 
-        rospy.loginfo("=== 将随机生成 5 轮方块，并等待视觉输出坐标后抓取 ===")
-        rospy.loginfo(f"=== 固定放置位置: ({place_pos[0]:.3f}, {place_pos[1]:.3f}, {place_pos[2]:.3f}) ===")
+        # box_x = float(np.random.uniform(min_x, max_x))
+        # box_y = float(np.random.uniform(min_y, max_y))
+        box_x = 0.5
+        box_y = 0.5
+        success = arm_controller.display_test_box(
+            box_pos=(box_x, box_y, box_z),
+            box_name="blue_box"
+        )
 
-        for i in range(5):
-            if rospy.is_shutdown():
-                break
+        cylinder_x = float(np.random.uniform(min_x, max_x))
+        cylinder_y = float(np.random.uniform(min_y, max_y))
+        success = arm_controller.display_test_cylinder(
+            cyl_pos=(cylinder_x, cylinder_y, box_z),
+            cyl_name="green_cylinder"
+        )   
+        # rospy.loginfo("=== 将随机生成 5 轮方块，并等待视觉输出坐标后抓取 ===")
+        # rospy.loginfo(f"=== 固定放置位置: ({place_pos[0]:.3f}, {place_pos[1]:.3f}, {place_pos[2]:.3f}) ===")
 
-            # 每轮生成一个新方块（不同名称）
-            box_name = f"test_box_{i}"
+        # for i in range(5):
+            # if rospy.is_shutdown():
+            #     break
 
-            # 尝试随机生成可达位置（display_test_box 内部也会再检查可达性）
-            max_attempts = 20
-            success = False
-            for attempt in range(max_attempts):
-                box_x = float(np.random.uniform(min_x, max_x))
-                box_y = float(np.random.uniform(min_y, max_y))
-                success = arm_controller.display_test_box(
-                    box_pos=(box_x, box_y, box_z),
-                    box_name=box_name
-                )
-                if success:
-                    break
+            # # 每轮生成一个新方块（不同名称）
+            # box_name = f"test_box_{i}"
 
-            if not success:
-                rospy.logerr(f"[Round {i+1}/5] 生成方块失败（尝试 {max_attempts} 次仍不可达），跳过该轮")
-                continue
+            # # 尝试随机生成可达位置（display_test_box 内部也会再检查可达性）
+            # max_attempts = 20
+            # success = False
+            # for attempt in range(max_attempts):
+            #     box_x = float(np.random.uniform(min_x, max_x))
+            #     box_y = float(np.random.uniform(min_y, max_y))
+            #     success = arm_controller.display_test_box(
+            #         box_pos=(box_x, box_y, box_z),
+            #         box_name=box_name
+            #     )
+            #     if success:
+            #         break
 
-            rospy.loginfo(f"[Round {i+1}/5] 方块已生成: name={box_name}, pos=({box_x:.3f}, {box_y:.3f}, {box_z:.3f})")
+            # if not success:
+            #     rospy.logerr(f"[Round {i+1}/5] 生成方块失败（尝试 {max_attempts} 次仍不可达），跳过该轮")
+            #     continue
+
+            # rospy.loginfo(f"[Round {i+1}/5] 方块已生成: name={box_name}, pos=({box_x:.3f}, {box_y:.3f}, {box_z:.3f})")
 
             # 等待视觉模型推理出的坐标（/detected_objects）
             # 用时间戳防止拿到上一轮的旧坐标：先清空，再等待新值
@@ -182,7 +198,7 @@ def main():
             # finally:
             #     object_detector.is_processing = False
             #     arm_controller.box.delete_entity(box_name)
-        rospy.loginfo("=== 5 轮完成（或提前结束），进入 spin 保持节点运行 ===")
+        # rospy.loginfo("=== 5 轮完成（或提前结束），进入 spin 保持节点运行 ===")
         rospy.spin()
         
     except rospy.ROSInterruptException:

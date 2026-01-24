@@ -1,0 +1,5 @@
+geometry_msgs/PoseStamped target_pose
+string action_type   # e.g. "grasp", "place"
+---
+bool success
+string message
