@@ -233,6 +233,31 @@ class ArmController:
         self.move_arm_simple(theta1_c, theta2_c, origin_height-place_z+div, duration=3.0)
         rospy.loginfo("抓取放置任务完成")
     
+    def pick(self, pick_pos):
+        pick_x, pick_y, pick_z = pick_pos
+
+        origin_height = 0.5
+        div = 0.187
+        theta1_c, theta2_c, d3_c, reachable = inverse_kinematics(pick_x, pick_y, origin_height, elbow="down")
+        if not reachable:
+            rospy.logwarn("抓取位置不可达: (%.3f, %.3f, %.3f)" % (pick_x, pick_y, pick_z))
+            return
+        rospy.loginfo("前往抓取目标上方")
+        self.move_arm_simple(theta1_c, theta2_c, d3_c, duration=3.0)
+
+        # 在夹爪移动到物体上方后，对齐夹爪朝向
+        self.align_gripper_roll()
+        
+        rospy.loginfo("下降夹爪")
+        self.move_arm_simple(theta1_c, theta2_c, pick_z+div-origin_height, duration=3.0)
+        rospy.loginfo("闭合夹爪")
+        self.close_gripper(duration=1.0)
+        rospy.loginfo("抬起")
+        self.move_arm_simple(theta1_c, theta2_c, origin_height-pick_z+div, duration=3.0)
+
+        
+
+
     def arm_reset(self):
         """手臂复位到初始位置"""
         rospy.loginfo("手臂复位到初始位置")
