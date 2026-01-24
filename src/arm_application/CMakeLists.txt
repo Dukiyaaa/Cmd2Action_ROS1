@@ -20,12 +20,19 @@ add_service_files(
   AgentCommands.srv
 )
 
+## 添加消息文件
+add_message_files(
+  FILES
+  LLMCommands.msg
+)
+
 ## 生成消息
 generate_messages(
   DEPENDENCIES
   std_msgs
   geometry_msgs
 )
+
 catkin_package(
   CATKIN_DEPENDS rospy std_msgs geometry_msgs message_runtime
 )
