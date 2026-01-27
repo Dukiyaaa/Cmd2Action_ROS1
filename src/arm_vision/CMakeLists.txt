@@ -31,6 +31,6 @@ catkin_package(
 )
 
 # Python 脚本不需要编译，但需要设置权限
-catkin_install_python(PROGRAMS src/my_vision.py src/object_data_collector.py
+catkin_install_python(PROGRAMS src/my_vision.py src/object_data_collector.py src/detector.py src/coordinate_transformer.py src/visualizer.py src/vision_node.py src/__init__.py 
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )

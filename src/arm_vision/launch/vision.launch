@@ -8,7 +8,7 @@
     <arg name="test_depth_path" default=""/>
 
     <!-- 启动视觉节点 -->
-    <node pkg="arm_vision" type="my_vision.py" name="vision_node" output="screen">
+    <node pkg="arm_vision" type="vision_node.py" name="vision_node" output="screen">
         <remap from="/camera/color/image_raw" to="/camera/color/image_raw"/>
         <remap from="/camera/depth/image_rect_raw" to="/camera/depth/image_rect_raw"/>
         <remap from="/camera/color/camera_info" to="/camera/color/camera_info"/>
