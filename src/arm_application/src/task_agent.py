@@ -40,12 +40,12 @@ class TaskAgent:
         # 初始化视觉检测器（单例）
         self.detector = ObjectDetector()
         
-        # 等待控制器服务
+        # 等待控制器服务 用于agent向控制器发命令
         rospy.loginfo("等待 /execute_task 服务...")
         rospy.wait_for_service('/execute_task')
         self.task_client = rospy.ServiceProxy('/execute_task', AgentCommands)
         
-        # 订阅 LLM 指令
+        # 订阅 LLM 指令 用于llm向agent发解析后的需求
         self.sub = rospy.Subscriber('/llm_commands', LLMCommands, self._llm_callback)
         rospy.loginfo("Agent 已启动，等待 LLM 指令...")
 
