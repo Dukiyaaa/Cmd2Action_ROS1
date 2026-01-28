@@ -29,12 +29,15 @@ class VisionNode:
         self.bridge = CvBridge()
         self.lock = threading.Lock()
 
+        # 模型加载
         self.detector = YOLODetector(
             model_path=rospy.get_param('~model_path'),
             conf_thres=rospy.get_param('~conf', 0.45),
             device=rospy.get_param('~device', 'auto')
         )
+        # 坐标转换
         self.transformer = CoordinateTransformer()
+        # 可视化
         self.visualizer = Visualizer()
 
         # 参数

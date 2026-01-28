@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-对象数据采集节点 (ROS1 + Gazebo),用于数据集采集
+对象数据采集节点 (ROS1 + Gazebo),用于模型训练阶段数据集采集
 
 功能:
 - 在与 my_scara_action.py 中 pick&place 相同的可达范围内, 随机生成若干方块或圆柱体
