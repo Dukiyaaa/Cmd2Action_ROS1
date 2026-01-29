@@ -1,5 +1,0 @@
-geometry_msgs/PoseStamped[] target_pose
-string action_type   # e.g. "pick", "place"
----
-bool success
-string message

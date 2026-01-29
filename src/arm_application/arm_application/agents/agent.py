@@ -10,7 +10,6 @@ from planners.task_planner import TaskPlanner
 from controllers.scara_controller import ScaraController
 from arm_vision.msg import DetectedObjectPool
 from geometry_msgs.msg import PoseStamped
-from arm_application.srv import AgentCommands
 from arm_application.msg import LLMCommands
 from agents.object_detector import ObjectDetector
 from typing import List, Tuple, Any
@@ -22,11 +21,7 @@ class Agent:
         self.controller = ScaraController()
         self.object_detector = ObjectDetector()
         self.controller.reset()
-        # 等待控制器服务 用于agent向控制器发命令
-        # rospy.loginfo("等待 /execute_task 服务...")
-        # rospy.wait_for_service('/execute_task')
-        # self.task_client = rospy.ServiceProxy('/execute_task', AgentCommands)
-        
+
         # 订阅 LLM 指令 用于llm向agent发解析后的需求
         self.sub = rospy.Subscriber('/llm_commands', LLMCommands, self._llm_callback)
         rospy.loginfo("Agent 已启动，等待 LLM 指令...")
@@ -40,8 +35,6 @@ class Agent:
             if obj_pose is None:
                 rospy.logerr("未检测到 class_id=%d 的物体！" % msg.target_class_id)
                 return
-            # obj_pose[2] += 0.032
-            # obj_pose = (0.8,0.0,0.05)
             target_pose = (0,0,0)
 
             # 调用 Planner 获取动作序列 

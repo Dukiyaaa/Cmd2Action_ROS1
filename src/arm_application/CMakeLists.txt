@@ -8,12 +8,7 @@ find_package(catkin REQUIRED COMPONENTS
   message_generation
 )
 
-# 声明 .srv 和 .msg 文件
-add_service_files(
-  FILES
-  AgentCommands.srv
-)
-
+# 声明 .msg 文件
 add_message_files(
   FILES
   LLMCommands.msg
@@ -37,8 +32,5 @@ catkin_package(
 # 安装可执行的 Python 脚本（仅入口节点）
 catkin_install_python(PROGRAMS 
   arm_application/nodes/main_node.py
-  # controllers/abstract_controller.py
-  # controllers/scara_controller.py
-  # utils/my_kinematics.py
   DESTINATION  ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
