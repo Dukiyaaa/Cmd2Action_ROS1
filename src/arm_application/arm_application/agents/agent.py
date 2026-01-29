@@ -64,6 +64,25 @@ class Agent:
 
             # 执行动作序列
             self._execute_action_sequence(action_sequence)
+        elif msg.action_type == "pick_place":
+            # 查询目标物体位置
+            obj_pose = self.object_detector.get_position(msg.target_class_id)
+            if obj_pose is None:
+                rospy.logerr("未检测到 class_id=%d 的物体！" % msg.target_class_id)
+                return
+            target_pose = (0,-1.8,0.05)
+
+            # 调用 Planner 获取动作序列 
+            task_spec = {
+                "action": msg.action_type,
+                "object": obj_pose,
+                "target": target_pose
+            }
+            action_sequence = self.task_planner.plan(task_spec)
+            rospy.loginfo(f'{action_sequence}')
+
+            # 执行动作序列
+            self._execute_action_sequence(action_sequence)
 
     def _execute_action_sequence(self, seq: List[Tuple[str, ...]]):
         for action in seq:

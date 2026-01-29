@@ -21,8 +21,8 @@ class TaskPlanner:
                 ...
             ]
         """
-        if task["action"] == "pick_and_place":
-            return self._plan_pick_and_place(task["object"], task["target"])
+        if task["action"] == "pick_place":
+            return self._plan_pick_place(task["object"], task["target"])
         elif task["action"] == "pick":
             return self._plan_pick(task["object"])
         elif task["action"] == "place":
@@ -30,7 +30,7 @@ class TaskPlanner:
         else:
             raise ValueError(f"Unsupported action: {task['action']}")
 
-    def _plan_pick_and_place(self, obj: Tuple[float, float, float], tgt: Tuple[float, float, float]):
+    def _plan_pick_place(self, obj: Tuple[float, float, float], tgt: Tuple[float, float, float]):
         return self._plan_pick(obj) + self._plan_place(tgt)
 
     def _plan_pick(self, pose):
