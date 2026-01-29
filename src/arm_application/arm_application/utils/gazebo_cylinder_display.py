@@ -159,6 +159,40 @@ class CylinderSpawner:
             rospy.logerr('生成圆柱体失败: %s' % e)
             return False
 
+    def display_test_cylinder(self, cyl_pos, radius=0.015, length=0.032,
+                              cyl_color=(0.2, 0.8, 0.2, 1.0),
+                              cyl_mass=0.01,
+                              cyl_name='test_cylinder'):
+        """
+        在机械臂可达范围内生成一个测试圆柱体
+
+        参数:
+            cyl_pos: (x, y, z) 圆柱体中心位置
+            radius: 半径 (m)
+            length: 高度/长度 (m)
+            cyl_color: 颜色 (r, g, b, a)
+            cyl_mass: 质量 (kg)
+            cyl_name: 模型名称
+        """
+        cyl_x, cyl_y, cyl_z = cyl_pos
+        r, g, b, a = cyl_color
+
+        rospy.loginfo("生成测试圆柱体...")
+        success = self.spawn_cylinder(
+            name=cyl_name,
+            x=cyl_x, y=cyl_y, z=cyl_z,
+            yaw=0.0,
+            radius=radius,
+            length=length,
+            color_rgba=(r, g, b, a),
+            mass=cyl_mass,
+            reference_frame='world'
+        )
+
+        if success:
+            rospy.loginfo("圆柱体 '%s' 生成成功，位置在夹取范围内" % cyl_name)
+        return success
+
     def delete_entity(self, name):
         """
         删除 Gazebo 中的实体

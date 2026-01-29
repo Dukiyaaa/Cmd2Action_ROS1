@@ -90,7 +90,7 @@ class ScaraController(AbstractController):
         self.finger4_pub.publish(Float64(-0.02))
         rospy.sleep(duration)
 
-    def close_gripper(self, duration: float = 3.0) -> None:
+    def close_gripper(self, duration: float = 1.0) -> None:
         rospy.loginfo("close gripper")
         self.finger1_pub.publish(Float64(0.02))
         self.finger2_pub.publish(Float64(-0.02))

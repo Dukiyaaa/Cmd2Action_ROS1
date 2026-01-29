@@ -18,6 +18,7 @@ if script_dir not in sys.path:
 
 from controllers.scara_controller import ScaraController
 from utils.gazebo_box_display import BoxSpawner
+from utils.gazebo_cylinder_display import CylinderSpawner
 from agents.agent import Agent
 
 def main():
@@ -25,10 +26,11 @@ def main():
     rospy.loginfo("=== 启动 SCARA 控制器测试节点 ===")
     agent = Agent()
     box_spawner = BoxSpawner()
+    cylinder_spawner = CylinderSpawner()
 
     # 生成方块名称
     box_name = 'test_box'
-    box_spawner.delete_entity(box_name)
+    # box_spawner.delete_entity(box_name)
     box_x = 0.8
     box_y = 0.3
     box_z = 0.05
@@ -36,6 +38,18 @@ def main():
     success = box_spawner.display_test_box(
         box_pos=(box_x, box_y, box_z),
         box_name=box_name
+    )
+
+    # 生成圆柱名称
+    cylinder_name = 'test_cylinder'
+    # cylinder_spawner.delete_entity(cylinder_name)
+    cylinder_x = 0.8
+    cylinder_y = -0.3
+    cylinder_z = 0.05
+    # 显示方块
+    success = cylinder_spawner.display_test_cylinder(
+        cyl_pos=(cylinder_x, cylinder_y, cylinder_z),
+        cyl_name=cylinder_name
     )
     try:
         # 实例化控制器

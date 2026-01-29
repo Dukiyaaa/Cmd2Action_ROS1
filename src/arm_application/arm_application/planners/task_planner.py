@@ -70,7 +70,7 @@ class TaskPlanner:
         4.抬起夹爪
         """
         SAFE_HEIGHT = 0.5   #夹爪初始高度
-        DIV = 0.187          # 夹爪合适的下降位置
+        DIV = 0.25          # 夹爪合适的下降位置
 
         x, y, z = pose
         above = z + DIV

@@ -30,18 +30,24 @@ class Agent:
         rospy.loginfo("收到 LLM 指令: action='%s', class_id=%d" % (msg.action_type, msg.target_class_id))
             
         if msg.action_type == "pick":
-            # 查询目标物体位置
-            obj_pose = self.object_detector.get_position(msg.target_class_id)
-            if obj_pose is None:
-                rospy.logerr("未检测到 class_id=%d 的物体！" % msg.target_class_id)
+            if msg.object_x != 0.0 or msg.object_y != 0.0 or msg.object_z != 0.0:
+                obj_pose = (msg.object_x, msg.object_y, msg.object_z)
+                rospy.loginfo(f"使用显式抓取坐标: {obj_pose}")
+            elif msg.object_class_id != -1:
+                obj_pose = self.object_detector.get_position(msg.object_class_id)
+                if obj_pose is None:
+                    rospy.logerr(f"视觉未检测到 object_class_id={msg.object_class_id} 的物体！")
+                    return
+                rospy.loginfo(f"从视觉获取抓取位置: {obj_pose}")
+            else:
+                rospy.logerr("pick/pick_place 动作未提供 object_class_id 或 object 坐标！")
                 return
-            target_pose = (0,0,0)
 
             # 调用 Planner 获取动作序列 
             task_spec = {
                 "action": msg.action_type,
                 "object": obj_pose,
-                "target": target_pose
+                "target": (-1,-1,-1)
             }
             action_sequence = self.task_planner.plan(task_spec)
             rospy.loginfo(f'{action_sequence}')
@@ -49,14 +55,25 @@ class Agent:
             # 执行动作序列
             self._execute_action_sequence(action_sequence)
         elif msg.action_type == "place":
-            # 查询目标物体位置
-            obj_pose = (0,0,0)
-            target_pose = (0,-1.8,0.05)
+            # 1. 优先使用显式坐标
+            if msg.target_x != 0.0 or msg.target_y != 0.0 or msg.target_z != 0.0:
+                target_pose = (msg.target_x, msg.target_y, msg.target_z)
+                rospy.loginfo(f"使用显式放置坐标: {target_pose}")
+            # 2. 否则用 class_id 查询视觉（如“放到蓝色托盘上”）
+            elif msg.target_class_id != -1:
+                target_pose = self.object_detector.get_position(msg.target_class_id)
+                if target_pose is None:
+                    rospy.logerr(f"视觉未检测到 target_class_id={msg.target_class_id} 的放置目标！")
+                    return
+                rospy.loginfo(f"从视觉获取放置位置: {target_pose}")
+            else:
+                rospy.logerr("place/pick_place 动作未提供 target_class_id 或 target 坐标！")
+                return
 
             # 调用 Planner 获取动作序列 
             task_spec = {
                 "action": msg.action_type,
-                "object": obj_pose,
+                "object": (-1,-1,-1),
                 "target": target_pose
             }
             action_sequence = self.task_planner.plan(task_spec)
@@ -65,12 +82,35 @@ class Agent:
             # 执行动作序列
             self._execute_action_sequence(action_sequence)
         elif msg.action_type == "pick_place":
-            # 查询目标物体位置
-            obj_pose = self.object_detector.get_position(msg.target_class_id)
-            if obj_pose is None:
-                rospy.logerr("未检测到 class_id=%d 的物体！" % msg.target_class_id)
+            # 1. 优先使用显式坐标
+            if msg.object_x != 0.0 or msg.object_y != 0.0 or msg.object_z != 0.0:
+                obj_pose = (msg.object_x, msg.object_y, msg.object_z)
+                rospy.loginfo(f"使用显式抓取坐标: {obj_pose}")
+            # 2. 否则用 class_id 查询视觉（如“抓取红色方块”）
+            elif msg.object_class_id != -1:
+                obj_pose = self.object_detector.get_position(msg.object_class_id)
+                if obj_pose is None:
+                    rospy.logerr(f"视觉未检测到 object_class_id={msg.object_class_id} 的物体！")
+                    return
+                rospy.loginfo(f"从视觉获取抓取位置: {obj_pose}")
+            else:
+                rospy.logerr("pick/pick_place 动作未提供 object_class_id 或 object 坐标！")
                 return
-            target_pose = (0.8,-0.8,0.05)
+
+            # 1. 优先使用显式坐标
+            if msg.target_x != 0.0 or msg.target_y != 0.0 or msg.target_z != 0.0:
+                target_pose = (msg.target_x, msg.target_y, msg.target_z)
+                rospy.loginfo(f"使用显式放置坐标: {target_pose}")
+            # 2. 否则用 class_id 查询视觉（如“放到蓝色托盘上”）
+            elif msg.target_class_id != -1:
+                target_pose = self.object_detector.get_position(msg.target_class_id)
+                if target_pose is None:
+                    rospy.logerr(f"视觉未检测到 target_class_id={msg.target_class_id} 的放置目标！")
+                    return
+                rospy.loginfo(f"从视觉获取放置位置: {target_pose}")
+            else:
+                rospy.logerr("place/pick_place 动作未提供 target_class_id 或 target 坐标！")
+                return
 
             # 调用 Planner 获取动作序列 
             task_spec = {
