@@ -61,39 +61,36 @@ class ScaraController(AbstractController):
         """关节状态回调函数"""
         self.current_joint_state = msg
 
-    def _move_joints(self, theta1, theta2, d3, duration=1.0):
+    def _move_joints(self, theta1, theta2, d3, duration=1.5):
         """内部方法：直接控制关节"""
         self.rotation1_pub.publish(Float64(theta1))
         self.rotation2_pub.publish(Float64(theta2))
         self.gripper_pub.publish(Float64(d3))
         rospy.sleep(duration)
 
-    def move_to(self, x: float, y: float, z: float, duration: float = 1.0) -> bool:
-        """实现抽象方法：移动到世界坐标"""
-        SAFE_HEIGHT = 0.5
-        div = 0.187
+    def move_to(self, x: float, y: float, z: float, duration: float = 3.0) -> bool:
+        """
+        实现原子动作:移动到世界坐标,但目前并未考虑从任意坐标的移动
+        """  
         
-        # 先移动到目标上方
-        theta1, theta2, d3, reachable = inverse_kinematics(x, y, SAFE_HEIGHT, elbow="down")
+        theta1, theta2, d3, reachable = inverse_kinematics(x, y, z, elbow="down")
         if not reachable:
             return False
+        rospy.loginfo(f'move to {x,y,z}')
         self._move_joints(theta1, theta2, d3, duration)
-        
-        # 再下降到目标高度
-        target_d3 = z + div - SAFE_HEIGHT
-        self._move_joints(theta1, theta2, target_d3, duration)
-
-        # 注意 夹取之前可能需要先旋转夹爪 align_gripper_roll 后续可以考虑增加相机 基于视觉实现对齐
+    
         return True
 
     def open_gripper(self, duration: float = 1.0) -> None:
+        rospy.loginfo("open gripper")
         self.finger1_pub.publish(Float64(-0.02))
         self.finger2_pub.publish(Float64(0.02))
         self.finger3_pub.publish(Float64(0.02))
         self.finger4_pub.publish(Float64(-0.02))
         rospy.sleep(duration)
 
-    def close_gripper(self, duration: float = 1.0) -> None:
+    def close_gripper(self, duration: float = 1.5) -> None:
+        rospy.loginfo("close gripper")
         self.finger1_pub.publish(Float64(0.02))
         self.finger2_pub.publish(Float64(-0.02))
         self.finger3_pub.publish(Float64(-0.02))
@@ -144,7 +141,6 @@ class ScaraController(AbstractController):
         """
         yaw = self._get_gripper_roll_yaw()
         if yaw is not None:
-            rospy.loginfo("当前 gripper_roll yaw 角: %.3f rad (%.1f 度)" % (yaw, np.degrees(yaw)))
             self.gripper_roll_pub.publish(Float64(-yaw))
             rospy.loginfo("旋转夹爪以对齐初始朝向")
         else:

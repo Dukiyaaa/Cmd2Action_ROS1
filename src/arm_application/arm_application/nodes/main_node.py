@@ -17,52 +17,54 @@ if script_dir not in sys.path:
     sys.path.insert(0, script_dir)
 
 from controllers.scara_controller import ScaraController
+from agents.agent import Agent
 
 def main():
     rospy.init_node('test_scara_controller', anonymous=True)
     rospy.loginfo("=== 启动 SCARA 控制器测试节点 ===")
+    agent = Agent()
 
     try:
         # 实例化控制器
-        controller = ScaraController()
-        rospy.loginfo("控制器初始化成功")
+        # controller = ScaraController()
+        # rospy.loginfo("控制器初始化成功")
 
-        # 测试 1: 复位
-        rospy.loginfo("\n-> 测试 1: 复位机械臂")
-        controller.reset(duration=2.0)
+        # # 测试 1: 复位
+        # rospy.loginfo("\n-> 测试 1: 复位机械臂")
+        # controller.reset(duration=2.0)
 
-        # 测试 2: 打开/关闭夹爪
-        rospy.loginfo("\n-> 测试 2: 夹爪开合")
-        controller.close_gripper(duration=1.0)
-        rospy.sleep(1.0)
-        controller.open_gripper(duration=1.0)
-        rospy.sleep(1.0)
+        # # 测试 2: 打开/关闭夹爪
+        # rospy.loginfo("\n-> 测试 2: 夹爪开合")
+        # controller.close_gripper(duration=1.0)
+        # rospy.sleep(1.0)
+        # controller.open_gripper(duration=1.0)
+        # rospy.sleep(1.0)
 
-        # 测试 3: 移动到几个点
-        test_points = [
-            (0.8, -0.8, 0.05),
-        ]
+        # # 测试 3: 移动到几个点
+        # test_points = [
+        #     (0.8, -0.8, 0.05),
+        # ]
 
-        for i, (x, y, z) in enumerate(test_points, 1):
-            rospy.loginfo(f"\n-> 测试 3.{i}: 移动到 ({x:.2f}, {y:.2f}, {z:.2f})")
-            success = controller.move_to(x, y, z, duration=2.0)
-            if success:
-                rospy.loginfo("到达目标点")
-                rospy.sleep(1.0)
-            else:
-                rospy.logwarn("目标点不可达")
+        # for i, (x, y, z) in enumerate(test_points, 1):
+        #     rospy.loginfo(f"\n-> 测试 3.{i}: 移动到 ({x:.2f}, {y:.2f}, {z:.2f})")
+        #     success = controller.move_to(x, y, z, duration=2.0)
+        #     if success:
+        #         rospy.loginfo("到达目标点")
+        #         rospy.sleep(1.0)
+        #     else:
+        #         rospy.logwarn("目标点不可达")
 
-        # 测试 4: 对齐夹爪朝向（需先移动到某点再对齐）
-        rospy.loginfo("\n-> 测试 4: 对齐夹爪朝向")
-        # controller.move_to(0.6, 0.0, 0.1, duration=2.0)
-        controller.align_gripper_roll()
-        rospy.sleep(1.0)
+        # # 测试 4: 对齐夹爪朝向（需先移动到某点再对齐）
+        # rospy.loginfo("\n-> 测试 4: 对齐夹爪朝向")
+        # # controller.move_to(0.6, 0.0, 0.1, duration=2.0)
+        # controller.align_gripper_roll()
+        # rospy.sleep(1.0)
 
-        # 最终复位
-        rospy.loginfo("\n-> 最终复位")
-        controller.reset(duration=2.0)
+        # # 最终复位
+        # rospy.loginfo("\n-> 最终复位")
+        # controller.reset(duration=2.0)
 
-        rospy.loginfo("\n所有测试完成！按 Ctrl+C 退出...")
+        # rospy.loginfo("\n所有测试完成！按 Ctrl+C 退出...")
         rospy.spin()
 
     except rospy.ROSInterruptException:
