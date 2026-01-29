@@ -57,8 +57,10 @@
         <gazebo reference="camera_link">
             <sensor name="color_camera" type="camera">
                 <camera>
-                    <!-- <horizontal_fov>1.204</horizontal_fov>  ~69 度，D435i 彩色 FOV -->
-                    <horizontal_fov>1.518</horizontal_fov>  <!-- ~87 度，D435i 深度 FOV -->
+                    <!-- ~69 度，D435i 彩色 FOV -->
+                    <horizontal_fov>1.204</horizontal_fov>  
+                    <!-- ~87 度，D435i 深度 FOV -->
+                    <!-- <horizontal_fov>1.518</horizontal_fov>   -->
                     <image>
                         <width>848</width>
                         <height>480</height>
