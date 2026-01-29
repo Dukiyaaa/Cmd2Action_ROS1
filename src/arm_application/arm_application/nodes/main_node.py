@@ -17,13 +17,26 @@ if script_dir not in sys.path:
     sys.path.insert(0, script_dir)
 
 from controllers.scara_controller import ScaraController
+from utils.gazebo_box_display import BoxSpawner
 from agents.agent import Agent
 
 def main():
     rospy.init_node('test_scara_controller', anonymous=True)
     rospy.loginfo("=== 启动 SCARA 控制器测试节点 ===")
     agent = Agent()
+    box_spawner = BoxSpawner()
 
+    # 生成方块名称
+    box_name = 'test_box'
+    box_spawner.delete_entity(box_name)
+    box_x = 0.8
+    box_y = 0.3
+    box_z = 0.05
+    # 显示方块
+    success = box_spawner.display_test_box(
+        box_pos=(box_x, box_y, box_z),
+        box_name=box_name
+    )
     try:
         # 实例化控制器
         # controller = ScaraController()

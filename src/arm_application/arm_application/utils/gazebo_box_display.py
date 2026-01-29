@@ -150,6 +150,34 @@ class BoxSpawner:
             rospy.logerr('生成方块失败: %s' % e)
             return False
 
+    def display_test_box(self, box_pos, box_size=(0.032, 0.032, 0.032), box_color=(0.2, 0.6, 0.9, 1.0), box_mass=0.01, box_name='test_box'):
+        box_x, box_y, box_z = box_pos
+        sx, sy, sz = box_size
+        r, g, b, a = box_color
+        
+        # 检查方块位置是否在机械臂夹取范围内
+        # origin_height = 0.5
+        # theta1_c, theta2_c, d3_c, reachable = inverse_kinematics(box_x, box_y, origin_height, elbow="down")
+        # if not reachable:
+        #     rospy.logwarn("方块位置不在机械臂夹取范围内: (%.3f, %.3f, %.3f)" % (box_x, box_y, box_z))
+        #     rospy.logwarn("无法生成方块 '%s'" % box_name)
+        #     return False
+        
+        rospy.loginfo("生成测试方块...")
+        success = self.spawn_box(
+            name=box_name,
+            x=box_x, y=box_y, z=box_z,
+            yaw=0.0,
+            sx=sx, sy=sy, sz=sz,
+            color_rgba=(r, g, b, a),
+            mass=box_mass,
+            reference_frame='world'
+        )
+        
+        if success:
+            rospy.loginfo("方块 '%s' 生成成功，位置在夹取范围内" % box_name)
+        return success
+
     def delete_entity(self, name):
         """
         删除 Gazebo 中的实体

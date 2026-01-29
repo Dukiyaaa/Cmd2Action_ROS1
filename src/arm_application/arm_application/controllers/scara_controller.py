@@ -74,6 +74,7 @@ class ScaraController(AbstractController):
         """  
         
         theta1, theta2, d3, reachable = inverse_kinematics(x, y, z, elbow="down")
+        rospy.loginfo(f't1 t2 d3:{theta1, theta2, d3}')
         if not reachable:
             return False
         rospy.loginfo(f'move to {x,y,z}')
@@ -89,7 +90,7 @@ class ScaraController(AbstractController):
         self.finger4_pub.publish(Float64(-0.02))
         rospy.sleep(duration)
 
-    def close_gripper(self, duration: float = 1.5) -> None:
+    def close_gripper(self, duration: float = 3.0) -> None:
         rospy.loginfo("close gripper")
         self.finger1_pub.publish(Float64(0.02))
         self.finger2_pub.publish(Float64(-0.02))
