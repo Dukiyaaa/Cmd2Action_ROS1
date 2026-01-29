@@ -101,7 +101,6 @@ class VisionNode:
         #urdf，camera_fixed_joint的旋转导致图像需要旋转180度
         rgb = cv2.rotate(rgb, cv2.ROTATE_180)
         depth = cv2.rotate(depth, cv2.ROTATE_180)
-
         # 确保 RGB 是 uint8 且为 3 通道
         if rgb.dtype != np.uint8:
             if rgb.max() <= 1.0:
@@ -119,15 +118,16 @@ class VisionNode:
         if not detections:
             rospy.loginfo_throttle(5.0, "No detections")
             # 即使没有检测到物体，也显示图像
-            cv2.imshow('RGB Image', rgb)
-            cv2.waitKey(1)
+            # cv2.imshow('RGB Image', rgb)
+            # cv2.waitKey(1)
             return
         
         # 转换到世界坐标
         detected_objects = []
         for _, score, cls_id, u, v in detections:
             depth_value = depth[v, u] if u < depth.shape[1] and v < depth.shape[0] else 1.25
-            depth_value = 1.25
+            # depth_value = 1.25
+            rospy.loginfo(f'depth_value = {depth_value}')
             point = self.transformer.pixel_to_world_coordinate(u, v, depth_value)
             if point is None:
                 continue
@@ -156,6 +156,7 @@ class VisionNode:
         # 可视化
         rgb = self.visualizer.draw_detections(rgb, detections)
         cv2.imshow('RGB Image', rgb)
+        cv2.imshow('Depth Image', depth)
         cv2.waitKey(1)
 
     def run(self):

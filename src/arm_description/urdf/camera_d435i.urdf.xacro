@@ -99,11 +99,11 @@
                 <always_on>true</always_on>
                 <update_rate>30</update_rate>
                 <visualize>false</visualize>
-                <plugin name="depth_camera_controller" filename="libgazebo_ros_depth_camera.so">
+                <plugin name="depth_camera_controller" filename="libgazebo_ros_openni_kinect.so">
                     <alwaysOn>true</alwaysOn>
                     <updateRate>30.0</updateRate>
                     <cameraName>camera/depth</cameraName>
-                    <imageTopicName>image_rect_raw</imageTopicName>
+                    <depthImageTopicName>image_rect_raw</depthImageTopicName>
                     <cameraInfoTopicName>camera_info</cameraInfoTopicName>
                     <pointCloudTopicName>points</pointCloudTopicName>
                     <pointCloudCutoff>0.05</pointCloudCutoff>
