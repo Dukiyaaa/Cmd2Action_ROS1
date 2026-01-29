@@ -27,6 +27,12 @@ class TaskPlanner:
             return self._plan_pick(task["object"])
         elif task["action"] == "place":
             return self._plan_place(task["target"])
+        elif task["action"] == "reset":
+            return self._plan_reset()
+        elif task["action"] == "open_gripper":
+            return self._plan_open_gripper()
+        elif task["action"] == "close_gripper":
+            return self._plan_close_gripper()
         else:
             raise ValueError(f"Unsupported action: {task['action']}")
 
@@ -73,4 +79,27 @@ class TaskPlanner:
             ("move_to", x, y, above),
             ("open_gripper",),
             ("move_to", x, y, SAFE_HEIGHT)
+        ]
+
+    def _plan_reset(self):
+        """
+        本身属于原子操作
+        """
+        return [
+            ("reset",)
+        ]
+    
+    def _plan_open_gripper(self):
+        """
+        本身属于原子操作
+        """
+        return [
+            ("open_gripper",)
+        ]
+    def _plan_close_gripper(self):
+        """
+        本身属于原子操作
+        """
+        return [
+            ("close_gripper",)
         ]

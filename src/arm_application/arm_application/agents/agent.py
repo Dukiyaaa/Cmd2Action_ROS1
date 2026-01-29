@@ -70,13 +70,25 @@ class Agent:
             if obj_pose is None:
                 rospy.logerr("未检测到 class_id=%d 的物体！" % msg.target_class_id)
                 return
-            target_pose = (0,-1.8,0.05)
+            target_pose = (0.8,-0.8,0.05)
 
             # 调用 Planner 获取动作序列 
             task_spec = {
                 "action": msg.action_type,
                 "object": obj_pose,
                 "target": target_pose
+            }
+            action_sequence = self.task_planner.plan(task_spec)
+            rospy.loginfo(f'{action_sequence}')
+
+            # 执行动作序列
+            self._execute_action_sequence(action_sequence)
+        elif msg.action_type == "reset" or msg.action_type == "open_gripper" or msg.action_type == "close_gripper":
+            # 调用 Planner 获取动作序列 
+            task_spec = {
+                "action": msg.action_type,
+                "object": (-1,-1,-1),
+                "target": (-1,-1,-1)
             }
             action_sequence = self.task_planner.plan(task_spec)
             rospy.loginfo(f'{action_sequence}')
