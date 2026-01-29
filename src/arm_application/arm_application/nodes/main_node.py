@@ -25,32 +25,32 @@ def main():
     rospy.init_node('test_scara_controller', anonymous=True)
     rospy.loginfo("=== 启动 SCARA 控制器测试节点 ===")
     agent = Agent()
-    box_spawner = BoxSpawner()
-    cylinder_spawner = CylinderSpawner()
+    # box_spawner = BoxSpawner()
+    # cylinder_spawner = CylinderSpawner()
 
-    # 生成方块名称
-    box_name = 'test_box'
-    # box_spawner.delete_entity(box_name)
-    box_x = 0.8
-    box_y = 0.3
-    box_z = 0.05
-    # 显示方块
-    success = box_spawner.display_test_box(
-        box_pos=(box_x, box_y, box_z),
-        box_name=box_name
-    )
+    # # 生成方块名称
+    # box_name = 'test_box'
+    # # box_spawner.delete_entity(box_name)
+    # box_x = 0.8
+    # box_y = 0.3
+    # box_z = 0.05
+    # # 显示方块
+    # success = box_spawner.display_test_box(
+    #     box_pos=(box_x, box_y, box_z),
+    #     box_name=box_name
+    # )
 
-    # 生成圆柱名称
-    cylinder_name = 'test_cylinder'
-    # cylinder_spawner.delete_entity(cylinder_name)
-    cylinder_x = 0.8
-    cylinder_y = -0.3
-    cylinder_z = 0.05
-    # 显示方块
-    success = cylinder_spawner.display_test_cylinder(
-        cyl_pos=(cylinder_x, cylinder_y, cylinder_z),
-        cyl_name=cylinder_name
-    )
+    # # 生成圆柱名称
+    # cylinder_name = 'test_cylinder'
+    # # cylinder_spawner.delete_entity(cylinder_name)
+    # cylinder_x = 0.8
+    # cylinder_y = -0.3
+    # cylinder_z = 0.05
+    # # 显示方块
+    # success = cylinder_spawner.display_test_cylinder(
+    #     cyl_pos=(cylinder_x, cylinder_y, cylinder_z),
+    #     cyl_name=cylinder_name
+    # )
     try:
         # 实例化控制器
         # controller = ScaraController()

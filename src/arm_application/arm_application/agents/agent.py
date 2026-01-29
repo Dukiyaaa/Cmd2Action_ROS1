@@ -12,6 +12,8 @@ from arm_vision.msg import DetectedObjectPool
 from geometry_msgs.msg import PoseStamped
 from arm_application.msg import LLMCommands
 from agents.object_detector import ObjectDetector
+from utils.gazebo_box_display import BoxSpawner
+from utils.gazebo_cylinder_display import CylinderSpawner
 from typing import List, Tuple, Any
 
 class Agent:
@@ -20,6 +22,8 @@ class Agent:
         self.task_planner = TaskPlanner()
         self.controller = ScaraController()
         self.object_detector = ObjectDetector()
+        self.box_spawner = BoxSpawner()
+        self.cyl_spawner = CylinderSpawner()
         self.controller.reset()
 
         # 订阅 LLM 指令 用于llm向agent发解析后的需求
@@ -135,6 +139,24 @@ class Agent:
 
             # 执行动作序列
             self._execute_action_sequence(action_sequence)
+        elif msg.action_type == "create":
+            if msg.object_class_id == 0:
+                box_x, box_y, box_z = msg.object_x,msg.object_y,msg.object_z
+                box_name = msg.object_name
+                self.box_spawner.display_test_box(
+                    box_pos=(box_x, box_y, box_z),
+                    box_name=box_name
+                )
+            elif msg.object_class_id == 1:
+                cyl_x, cyl_y, cyl_z = msg.object_x,msg.object_y,msg.object_z
+                cyl_name = msg.object_name
+                self.cyl_spawner.display_test_cylinder(
+                    cyl_pos=(cyl_x, cyl_y, cyl_z),
+                    cyl_name=cyl_name
+                )
+        elif msg.action_type == "delete":
+            obj_name = msg.object_name
+            self.box_spawner.delete_entity(obj_name)
 
     def _execute_action_sequence(self, seq: List[Tuple[str, ...]]):
         for action in seq:
