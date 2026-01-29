@@ -126,8 +126,8 @@ class VisionNode:
         detected_objects = []
         for _, score, cls_id, u, v in detections:
             depth_value = depth[v, u] if u < depth.shape[1] and v < depth.shape[0] else 1.25
-            # depth_value = 1.25
-            rospy.loginfo(f'depth_value = {depth_value}')
+            depth_value = 1.25
+            # rospy.loginfo(f'depth_value = {depth_value}')
             point = self.transformer.pixel_to_world_coordinate(u, v, depth_value)
             if point is None:
                 continue

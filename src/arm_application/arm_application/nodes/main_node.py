@@ -51,18 +51,6 @@ def main():
         cyl_pos=(cylinder_x, cylinder_y, cylinder_z),
         cyl_name=cylinder_name
     )
-
-    cylinder_name = 'test_cylinder2'
-    # cylinder_spawner.delete_entity(cylinder_name)
-    cylinder_x = 0.8
-    cylinder_y = 0.0
-    cylinder_z = 0.05
-    # 显示方块
-    success = cylinder_spawner.display_test_cylinder(
-        cyl_pos=(cylinder_x, cylinder_y, cylinder_z),
-        cyl_name=cylinder_name,
-        length=1.0
-    )
     try:
         # 实例化控制器
         # controller = ScaraController()
