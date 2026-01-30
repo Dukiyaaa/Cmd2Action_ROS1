@@ -30,9 +30,7 @@ class Agent:
         self.sub = rospy.Subscriber('/llm_commands', LLMCommands, self._llm_callback)
         rospy.loginfo("Agent 已启动，等待 LLM 指令...")
         
-    def _llm_callback(self, msg):
-        rospy.loginfo("收到 LLM 指令: action='%s', class_id=%d" % (msg.action_type, msg.target_class_id))
-            
+    def _llm_callback(self, msg):            
         if msg.action_type == "pick":
             if msg.object_x != 0.0 or msg.object_y != 0.0 or msg.object_z != 0.0:
                 obj_pose = (msg.object_x, msg.object_y, msg.object_z)

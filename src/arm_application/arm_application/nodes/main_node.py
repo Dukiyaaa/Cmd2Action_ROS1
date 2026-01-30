@@ -19,12 +19,14 @@ if script_dir not in sys.path:
 from controllers.scara_controller import ScaraController
 from utils.gazebo_box_display import BoxSpawner
 from utils.gazebo_cylinder_display import CylinderSpawner
+from llm.llm import TongyiQianwenLLM
 from agents.agent import Agent
 
 def main():
     rospy.init_node('test_scara_controller', anonymous=True)
     rospy.loginfo("=== 启动 SCARA 控制器测试节点 ===")
     agent = Agent()
+    llm = TongyiQianwenLLM()
     # box_spawner = BoxSpawner()
     # cylinder_spawner = CylinderSpawner()
 
