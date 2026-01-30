@@ -74,7 +74,6 @@ class ScaraController(AbstractController):
         """  
         
         theta1, theta2, d3, reachable = inverse_kinematics(x, y, z, elbow="down")
-        rospy.loginfo(f't1 t2 d3:{theta1, theta2, d3}')
         if not reachable:
             return False
         rospy.loginfo(f'move to {x,y,z}')

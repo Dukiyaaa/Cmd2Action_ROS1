@@ -5,13 +5,8 @@ import textwrap
 from arm_application.msg import LLMCommands
 from std_msgs.msg import String
 from typing import Dict, Any, Optional
+import dashscope
 
-# 安装依赖: pip install dashscope
-try:
-    import dashscope
-except ImportError:
-    rospy.loginfo("Error: dashscope package not installed. Please run 'pip install dashscope'")
-    exit(1)
 
 class TongyiQianwenLLM:
     """通义千问LLM集成类"""

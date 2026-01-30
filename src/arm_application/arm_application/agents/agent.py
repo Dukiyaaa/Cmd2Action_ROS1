@@ -160,7 +160,6 @@ class Agent:
         for action in seq:
             method_name = action[0]
             args = action[1:]
-            rospy.loginfo(f'method_name:{method_name} args:{args}')
             if method_name == "move_to":
                 self.controller.move_to(*args)
             elif method_name == "open_gripper":
