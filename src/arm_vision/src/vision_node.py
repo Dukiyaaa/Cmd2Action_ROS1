@@ -89,6 +89,14 @@ class VisionNode:
             self.transformer.set_camera_params(self.fx, self.fy, self.cx, self.cy)
             rospy.loginfo(f'Camera calibrated: fx={self.fx}, fy={self.fy}, cx={self.cx}, cy={self.cy}')
 
+    # 坐标线性回归优化器
+    def correct_detection_value(self,detected_x, detected_y, k_x=1.025837, b_x=-0.009908, k_y=1.025445, b_y=0.001953):
+        # x
+        corrected_x = detected_x * k_x + b_x
+        # y
+        corrected_y = detected_y * k_y + b_y
+        return corrected_x, corrected_y
+
     def process_frame(self):
         # 每次进入该函数时，会获取当前最新图像并处理
         with self.lock:
@@ -132,7 +140,11 @@ class VisionNode:
             if point is None:
                 continue
             rospy.loginfo(f"Pixel to World coords: {point}")
-
+            # 坐标线性回归优化器
+            corrected_x, corrected_y = self.correct_detection_value(point[0], point[1])
+            point = (corrected_x, corrected_y, point[2])
+            rospy.loginfo(f"Corrected World coords: {point}")
+            
             obj = DetectedObject()
             obj.pose = PoseStamped()
             if self.depth_header:
@@ -155,8 +167,8 @@ class VisionNode:
 
         # 可视化
         rgb = self.visualizer.draw_detections(rgb, detections)
-        cv2.imshow('RGB Image', rgb)
-        cv2.imshow('Depth Image', depth)
+        # cv2.imshow('RGB Image', rgb)
+        # cv2.imshow('Depth Image', depth)
         cv2.waitKey(1)
 
     def run(self):

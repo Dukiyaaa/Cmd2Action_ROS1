@@ -142,8 +142,8 @@ class BoxSpawner:
                 reference_frame=reference_frame
             )
             
-            rospy.loginfo('生成方块: name=%s, pos=(%.3f,%.3f,%.3f), size=(%.3f,%.3f,%.3f)' 
-                         % (name, x, y, z, sx, sy, sz))
+            # rospy.loginfo('生成方块: name=%s, pos=(%.3f,%.3f,%.3f), size=(%.3f,%.3f,%.3f)' 
+            #              % (name, x, y, z, sx, sy, sz))
             return success.success
             
         except rospy.ServiceException as e:
@@ -163,7 +163,7 @@ class BoxSpawner:
         #     rospy.logwarn("无法生成方块 '%s'" % box_name)
         #     return False
         
-        rospy.loginfo("生成测试方块...")
+        # rospy.loginfo("生成测试方块...")
         success = self.spawn_box(
             name=box_name,
             x=box_x, y=box_y, z=box_z,
@@ -174,9 +174,9 @@ class BoxSpawner:
             reference_frame='world'
         )
         
-        if success:
-            rospy.loginfo("方块 '%s' 生成成功，位置在夹取范围内" % box_name)
-        return success
+        # if success:
+            # rospy.loginfo("方块 '%s' 生成成功，位置在夹取范围内" % box_name)
+        # return success
 
     def delete_entity(self, name):
         """
@@ -190,7 +190,7 @@ class BoxSpawner:
         """
         try:
             success = self.delete_client(model_name=name)
-            rospy.loginfo('删除实体: %s' % name)
+            # rospy.loginfo('删除实体: %s' % name)
             return success.success
         except rospy.ServiceException as e:
             rospy.logerr('删除实体失败: %s' % e)
