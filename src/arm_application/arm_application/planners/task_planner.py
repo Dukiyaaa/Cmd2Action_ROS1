@@ -49,7 +49,7 @@ class TaskPlanner:
         5.抬起夹爪
         """
         SAFE_HEIGHT = 0.5   #夹爪初始高度
-        DIV = 0.187         # 夹爪合适的下降位置
+        DIV = 0.188         # 夹爪合适的下降位置
 
         x, y, z = pose
         above = z + DIV
@@ -76,7 +76,7 @@ class TaskPlanner:
         above = z + DIV
         return [
             ("move_to", x, y, SAFE_HEIGHT),
-            ("align_gripper_roll",),
+            # ("align_gripper_roll",),
             ("move_to", x, y, above),
             ("open_gripper",),
             ("move_to", x, y, SAFE_HEIGHT)

@@ -108,21 +108,31 @@ source devel/setup.bash
 
 ## 4. 运行方式
 
-本项目支持三种典型模式：
+本项目支持多种运行模式，推荐按照以下顺序启动系统：
 
-### 4.1 Gazebo 仿真 + 应用节点（推荐）
+### 4.1 标准启动流程
 
-1) 启动 Gazebo 仿真与控制器（任选其一）：
+1) 启动 Gazebo 仿真环境（包含机械臂模型和控制器）：
 
 ```bash
-# 选项 A：使用描述包的 Gazebo 启动
 roslaunch arm_description gazebo.launch
-
-# 或 选项 B：使用 MoveIt 的 Gazebo 演示
-roslaunch arm_moveit_config demo_gazebo.launch
 ```
 
-2) 启动演示节点（在新的终端载入工作空间环境后）：
+2) 启动视觉系统（在新的终端）：
+
+```bash
+roslaunch arm_vision vision.launch
+```
+
+3) 启动主节点（在新的终端）：
+
+```bash
+rosrun arm_application main_node.py
+```
+
+主节点会初始化 Agent 和 LLM 实例，等待接收 LLM 指令并执行相应的抓取和放置任务。
+
+### 4.2 传统演示模式
 
 ```bash
 # 最小演示：生成一个方块,抓取并抬起,然后回零
@@ -132,26 +142,14 @@ rosrun arm_application simple_demo.py
 rosrun arm_application my_scara_action.py
 ```
 
-### 4.2 视觉伺服抓取系统
-
-1) 启动完整的仿真环境（Gazebo + 视觉系统）：
-
-```bash
-# 启动 Gazebo 仿真（包含深度相机）
-roslaunch arm_description gazebo.launch
-
-# 在新终端启动视觉检测节点
-roslaunch arm_vision vision.launch
-```
-
-2) 运行视觉辅助的抓取任务：
+### 4.3 视觉系统单独运行
 
 ```bash
 # 数据采集：生成随机物体场景并采集图像
 rosrun arm_vision object_data_collector.py _output_dir:=/tmp/test_dataset _num_objects_min:=1 _num_objects_max:=3
 ```
 
-### 4.3 MoveIt + Rviz 显示与交互（可选）
+### 4.4 MoveIt + Rviz 显示与交互（可选）
 
 ```bash
 # 仅显示 URDF/Xacro 模型
@@ -172,16 +170,6 @@ roslaunch arm_moveit_config demo.launch
 - `/finger4_position_controller/command`
 
 这些话题由 ros_control 的 position_controllers 提供,加载时机与命名由 `controllers.yaml` 和相应 launch 决定。
-
-### 4.2 MoveIt + Rviz 显示与交互（可选）
-
-```bash
-# 仅显示 URDF/Xacro 模型
-roslaunch arm_description display.launch
-
-# MoveIt + Rviz 交互（可用来查看规划、联动状态）
-roslaunch arm_moveit_config demo.launch
-```
 
 ---
 
@@ -205,10 +193,12 @@ roslaunch arm_moveit_config demo.launch
 - `/camera/color/image_raw`（`sensor_msgs/Image`）：RGB 图像流（由 Gazebo 仿真相机发布）。
 - `/camera/depth/image_rect_raw`（`sensor_msgs/Image`）：深度图像流（由 Gazebo 仿真相机发布）。
 - `/camera/color/camera_info`（`sensor_msgs/CameraInfo`）：相机内参信息。
+- `/llm_commands`（`arm_application/LLMCommands`）：LLM 发送的指令消息，包含动作类型和参数。
 
 ### 5.3 发布话题
 
 - `/detected_objects`（`geometry_msgs/PoseStamped`）：视觉系统检测到的物体 3D 位姿。
+- `/detected_object_pool`（`arm_vision/DetectedObjectPool`）：视觉系统检测到的物体池，包含多个物体的信息。
 
 ### 5.4 Gazebo 服务
 
@@ -230,11 +220,186 @@ roslaunch arm_moveit_config demo.launch
 
 该 IK 足以驱动示例任务,但未包含碰撞检测、速度/加速度限制与轨迹平滑；若需更复杂运动,请使用 MoveIt 的规划管线与 `FollowJointTrajectory` 控制器。
 
+## 7. 核心模块说明
+
+### 7.1 Agent 模块
+
+- **路径**：`src/arm_application/arm_application/agents/agent.py`
+- **功能**：
+  - 接收 LLM 指令（`/llm_commands` 话题）
+  - 解析指令类型和参数
+  - 处理不同类型的动作请求：`pick`、`place`、`pick_place`、`reset`、`open_gripper`/`close_gripper`、`create`、`delete`
+  - 与视觉系统交互获取物体位置
+  - 调用 TaskPlanner 生成动作序列
+  - 执行动作序列
+
+### 7.2 TaskPlanner 模块
+
+- **路径**：`src/arm_application/arm_application/planners/task_planner.py`
+- **功能**：
+  - 根据任务描述生成动作序列
+  - 实现不同动作的规划逻辑：`_plan_pick`、`_plan_place`、`_plan_pick_place`、`_plan_reset`、`_plan_open_gripper`/`_plan_close_gripper`
+
+### 7.3 ScaraController 模块
+
+- **路径**：`src/arm_application/arm_application/controllers/scara_controller.py`
+- **功能**：
+  - 实现机械臂的底层控制
+  - 发布关节控制指令
+  - 订阅关节状态信息
+  - 提供高层控制接口：`move_to`、`open_gripper`、`close_gripper`、`reset`、`align_gripper_roll`
+
+### 7.4 ObjectDetector 模块
+
+- **路径**：`src/arm_application/arm_application/agents/object_detector.py`
+- **功能**：
+  - 订阅视觉系统发布的物体检测结果
+  - 提供物体位置查询接口
+  - 支持根据物体类别 ID 获取物体位置
+
+## 8. 物体夹取和放置逻辑
+
+### 8.1 抓取逻辑（Pick）
+
+**流程**：
+1. **指令接收**：Agent 接收 LLM 发送的 `pick` 类型指令
+2. **位置获取**：
+   - 优先使用指令中提供的显式坐标 (`object_x`, `object_y`, `object_z`)
+   - 若未提供显式坐标，则通过视觉系统根据 `object_class_id` 获取物体位置
+3. **动作规划**：TaskPlanner 生成抓取动作序列
+4. **动作执行**：Agent 执行动作序列
+
+**抓取动作序列**：
+```python
+[
+    ("move_to", x, y, SAFE_HEIGHT),  # 移动到目标上方安全高度
+    ("align_gripper_roll",),          # 对齐夹爪朝向
+    ("move_to", x, y, above),         # 移动到目标上方合适高度
+    ("close_gripper",),               # 关闭夹爪
+    ("move_to", x, y, SAFE_HEIGHT)    # 抬起夹爪到安全高度
+]
+```
+其中：
+- `SAFE_HEIGHT = 0.5`（夹爪初始高度）
+- `above = z + DIV`，`DIV = 0.187`（夹爪合适的下降位置）
+
+### 8.2 放置逻辑（Place）
+
+**流程**：
+1. **指令接收**：Agent 接收 LLM 发送的 `place` 类型指令
+2. **位置获取**：
+   - 优先使用指令中提供的显式坐标 (`target_x`, `target_y`, `target_z`)
+   - 若未提供显式坐标，则通过视觉系统根据 `target_class_id` 获取放置目标位置
+3. **动作规划**：TaskPlanner 生成放置动作序列
+4. **动作执行**：Agent 执行动作序列
+
+**放置动作序列**：
+```python
+[
+    ("move_to", x, y, SAFE_HEIGHT),  # 移动到目标上方安全高度
+    ("align_gripper_roll",),          # 对齐夹爪朝向
+    ("move_to", x, y, above),         # 移动到目标上方合适高度
+    ("open_gripper",),                # 打开夹爪
+    ("move_to", x, y, SAFE_HEIGHT)    # 抬起夹爪到安全高度
+]
+```
+其中：
+- `SAFE_HEIGHT = 0.5`（夹爪初始高度）
+- `above = z + DIV`，`DIV = 0.23`（夹爪合适的下降位置）
+
+### 8.3 抓取并放置逻辑（Pick_Place）
+
+**流程**：
+1. **指令接收**：Agent 接收 LLM 发送的 `pick_place` 类型指令
+2. **位置获取**：
+   - 获取物体位置（同 Pick 流程）
+   - 获取放置目标位置（同 Place 流程）
+3. **动作规划**：TaskPlanner 组合 Pick 和 Place 的动作序列
+4. **动作执行**：Agent 执行组合动作序列
+
+### 8.4 底层控制实现
+
+**夹爪控制**：
+- **打开夹爪**：
+  ```python
+  self.finger1_pub.publish(Float64(-0.02))
+  self.finger2_pub.publish(Float64(0.02))
+  self.finger3_pub.publish(Float64(0.02))
+  self.finger4_pub.publish(Float64(-0.02))
+  ```
+- **关闭夹爪**：
+  ```python
+  self.finger1_pub.publish(Float64(0.02))
+  self.finger2_pub.publish(Float64(-0.02))
+  self.finger3_pub.publish(Float64(-0.02))
+  self.finger4_pub.publish(Float64(0.02))
+  ```
+
+**位置控制**：
+- 使用逆运动学计算关节角度：
+  ```python
+  theta1, theta2, d3, reachable = inverse_kinematics(x, y, z, elbow="down")
+  ```
+- 发布关节控制指令：
+  ```python
+  self.rotation1_pub.publish(Float64(theta1))
+  self.rotation2_pub.publish(Float64(theta2))
+  self.gripper_pub.publish(Float64(d3))
+  ```
+
+## 9. 系统架构
+
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│                 │     │                 │     │                 │
+│    LLM 节点     │────>│    Agent 节点   │────>│ TaskPlanner     │
+│                 │     │                 │     │                 │
+└─────────────────┘     └─────────────────┘     └────────┬────────┘
+                                                       │
+                                                       ▼
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│                 │     │                 │     │                 │
+│  视觉节点        │────>│ ObjectDetector │     │ ScaraController │────> 机械臂执行
+│                 │     │                 │     │                 │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
+```
+
+## 10. 仿真环境交互
+
+项目支持在 Gazebo 仿真环境中创建和删除物体：
+- **创建物体**：
+  - `create` 动作类型
+  - 支持创建立方体（`object_class_id=0`）和圆柱体（`object_class_id=1`）
+  - 通过 `BoxSpawner` 和 `CylinderSpawner` 实现
+- **删除物体**：
+  - `delete` 动作类型
+  - 通过物体名称删除指定物体
+
+## 11. 技术特点
+
+1. **分层架构**：清晰的分层设计，从指令解析到动作规划再到底层控制
+2. **多模式位置获取**：支持显式坐标和视觉识别两种方式获取物体位置
+3. **模块化设计**：各功能模块解耦，便于扩展和维护
+4. **仿真支持**：集成 Gazebo 仿真环境，支持物体创建和删除
+5. **逆运动学**：使用逆运动学计算关节角度，实现笛卡尔空间的位置控制
+6. **夹爪朝向对齐**：在抓取和放置前对齐夹爪朝向，提高操作精度
+
+## 12. 运动学说明（`my_kinematics.py`）
+
+- 使用简化 DH 参数定义 SCARA：
+    - 臂长：`a1=1.0`, `a2=0.8`
+    - 竖向偏距：`d1=0.4`, `d2=0.1`
+    - 竖向关节范围：`d3 ∈ [-0.5, 0.0]`
+- 前向运动学：`forward_kinematics(theta1, theta2, d3)` 返回 4x4 变换矩阵。
+- 逆运动学：`inverse_kinematics(x, y, z, elbow="down")` 返回 `(theta1, theta2, d3, reachable)`,含可达性判断与坐标系修正（代码中将目标平面坐标进行 `x, y = -y, x` 的旋转修正以匹配 URDF 初始朝向）。
+
+该 IK 足以驱动示例任务,但未包含碰撞检测、速度/加速度限制与轨迹平滑；若需更复杂运动,请使用 MoveIt 的规划管线与 `FollowJointTrajectory` 控制器。
+
 ---
 
-## 7. 视觉系统说明（`arm_vision`）
+## 13. 视觉系统说明（`arm_vision`）
 
-### 7.1 YOLOv8 物体检测
+### 13.1 YOLOv8 物体检测
 
 - 使用 Ultralytics YOLOv8 进行实时物体检测
 - 支持 RGB+Depth 相机输入,输出 3D 物体位姿
@@ -242,14 +407,14 @@ roslaunch arm_moveit_config demo.launch
 - 检测置信度阈值可配置（默认 0.45）
 - 支持类别过滤（默认检测所有类别）
 
-### 7.2 坐标变换
+### 13.2 坐标变换
 
 - `pixel_to_world(u, v, depth)`：将像素坐标 + 深度转换为相机坐标系下的 3D 坐标
 - 自动处理深度单位转换（毫米→米）
 - 集成相机内参校准信息
 - 支持坐标系变换（相机→世界坐标系）
 
-### 7.3 数据采集系统
+### 13.3 数据采集系统
 
 - `object_data_collector.py`：自动生成随机物体场景并采集 RGB 图像
 - 支持方块和圆柱体两种几何体
@@ -257,11 +422,9 @@ roslaunch arm_moveit_config demo.launch
 - 自动保存旋转校正后的图像（适配 URDF 相机朝向）
 - 输出格式：`scene_XXXXXX.png`
 
----
+## 14. 示例流程简介
 
-## 7. 示例流程简介
-
-### 7.1 `simple_demo.py`
+### 14.1 `simple_demo.py`
 
 1) 初始化 ROS 节点与控制器话题发布器；
 2) 调用 Gazebo 服务生成一个小方块；
@@ -269,7 +432,7 @@ roslaunch arm_moveit_config demo.launch
 4) 回到初始位置,打开夹爪；
 5) 保持节点运行以便查看与调试。
 
-### 7.2 `my_scara_action.py`
+### 14.2 `my_scara_action.py`
 
 1) 初始化并打开夹爪；
 2) 多轮随机测试：生成方块位置与放置位置,检查 IK 可达；
@@ -277,9 +440,17 @@ roslaunch arm_moveit_config demo.launch
 4) 复位并删除方块；
 5) 轮次结束后继续下一轮,最终完成所有测试。
 
+### 14.3 `main_node.py`
+
+1) 初始化 ROS 节点；
+2) 创建 Agent 实例（核心控制逻辑）；
+3) 创建 TongyiQianwenLLM 实例（处理自然语言指令）；
+4) 进入 ROS 主循环，等待 LLM 指令；
+5) 接收并处理 LLM 指令，执行相应的抓取和放置任务。
+
 ---
 
-## 8. 故障排查
+## 15. 故障排查
 
 - Gazebo 服务不可用：确认已启动 `gazebo.launch` 或 `demo_gazebo.launch`,并等待 `/gazebo/spawn_sdf_model` 与 `/gazebo/delete_model` 服务就绪。
 - 控制器话题未发布或命名不一致：检查 `arm_description/config/controllers.yaml` 与对应 `launch` 是否加载了 position_controllers,且话题名称与脚本一致。
@@ -290,10 +461,12 @@ roslaunch arm_moveit_config demo.launch
 - YOLO 检测无结果：确认相机话题正常发布,检查模型路径和置信度阈值设置。
 - 深度坐标转换异常：验证相机内参是否正确获取,检查深度值单位（应为米或毫米会自动转换）。
 - 数据采集图像异常：注意 URDF 中相机固定关节的旋转会影响图像朝向,节点已自动处理 180°旋转校正。
+- LLM 指令无响应：检查 `llm_commands` 话题是否正确发布,确认 Agent 节点是否正常运行。
+- 物体位置获取失败：检查视觉系统是否正常运行,确认物体是否在相机视野范围内。
 
 ---
 
-## 9. 扩展与改进建议
+## 16. 扩展与改进建议
 
 - 增加应用层 `launch`,一键启动 Gazebo + 控制器 + Demo 节点。
 - 为 `my_kinematics.py` 增加单元测试,覆盖可达/不可达边界与数值稳定性。
@@ -304,37 +477,47 @@ roslaunch arm_moveit_config demo.launch
 - 实现视觉伺服控制：将视觉检测结果直接用于闭环抓取控制。
 - 添加多相机支持和传感器融合功能。
 - 集成强化学习：基于视觉反馈的智能抓取策略学习。
+- 增加碰撞检测：在运动规划中加入碰撞检测,避免机械臂与环境或其他物体碰撞。
+- 优化夹爪控制：根据物体大小和形状自动调整夹爪闭合程度,添加力反馈。
+- 扩展 LLM 接口：支持更复杂的自然语言指令,增加任务规划能力。
 
 ---
 
-## 10. 许可证与署名
+## 17. 许可证与署名
 
 - `arm_description` 的 `package.xml` 与 `arm_moveit_config` 声明了公共依赖与 BSD 许可；请根据实际需求完善 `license` 与作者信息。
 
 ---
 
-## 11. 给大模型的快速理解 Prompt
+## 18. 给大模型的快速理解 Prompt
 
 将以下 Prompt 提供给其他大模型,以便快速理解本仓库并给出针对性的帮助或分析：
 
 ```
-你正在阅读一个 ROS1 工程仓库（Ubuntu 环境运行）,仓库名为 Cmd2Action_ROS1。这是一个集成了计算机视觉的 SCARA 机械臂智能抓取系统,包含四个核心包：
+你正在阅读一个 ROS1 工程仓库（Ubuntu 环境运行）,仓库名为 Cmd2Action_ROS1。这是一个集成了计算机视觉和大语言模型的 SCARA 机械臂智能抓取系统,包含四个核心包：
 
 - arm_description：提供 SCARA 机械臂的 URDF/Xacro、ros_control 控制器配置、Gazebo 与 Rviz 的 launch。
 - arm_moveit_config：MoveIt 自动生成的配置与多种规划管线的 launch（OMPL/CHOMP/STOMP）,以及 Rviz/MoveGroup。
-- arm_application：Python 应用节点（rospy）,通过 position_controller 的话题控制关节、调用 Gazebo 服务生成/删除几何体（方块/圆柱体）,并包含简易的 FK/IK（my_kinematics.py）。
+- arm_application：Python 应用节点（rospy）,包含 Agent、TaskPlanner、ScaraController 等核心模块,通过 position_controller 的话题控制关节、调用 Gazebo 服务生成/删除几何体（方块/圆柱体）,并包含简易的 FK/IK（my_kinematics.py）。
 - arm_vision：计算机视觉系统,使用 YOLOv8 进行物体检测,包含数据采集和 3D 位姿估计。
 
 关键接口：
 - 机械臂控制话题（Float64）：/rotation1_position_controller/command, /rotation2_position_controller/command, /gripper_position_controller/command, /finger1_position_controller/command, /finger2_position_controller/command, /finger3_position_controller/command, /finger4_position_controller/command。
 - 传感器话题：/joint_states（JointState）,/camera/color/image_raw（RGB）,/camera/depth/image_rect_raw（Depth）。
-- 视觉输出话题：/detected_objects（PoseStamped,检测到的物体 3D 位姿）。
+- 视觉输出话题：/detected_objects（PoseStamped,检测到的物体 3D 位姿）,/detected_object_pool（DetectedObjectPool,检测到的物体池）。
+- LLM 指令话题：/llm_commands（LLMCommands,LLM 发送的指令消息）。
 - Gazebo 服务：/gazebo/spawn_sdf_model 与 /gazebo/delete_model。
 
 典型运行流程：
 1) 启动 Gazebo 仿真（roslaunch arm_description gazebo.launch）。
-2) 可选启动视觉系统（roslaunch arm_vision vision.launch）。
-3) 启动应用节点进行抓取任务（rosrun arm_application simple_demo.py）或数据采集（rosrun arm_vision object_data_collector.py）。
+2) 启动视觉系统（roslaunch arm_vision vision.launch）。
+3) 启动主节点（rosrun arm_application main_node.py）,等待 LLM 指令并执行相应的抓取和放置任务。
+
+核心功能：
+- 物体抓取和放置：支持通过显式坐标或视觉识别获取物体位置,执行抓取和放置操作。
+- 仿真环境交互：支持在 Gazebo 中创建和删除物体。
+- 视觉伺服：通过 YOLOv8 进行物体检测,提供 3D 物体位姿。
+- LLM 接口：接收和解析自然语言指令,执行相应的任务。
 
 ```
 

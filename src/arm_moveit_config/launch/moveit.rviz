@@ -121,6 +121,19 @@ Visualization Manager:
             Show Axes: false
             Show Trail: false
             Value: true
+          gripper_camera_color_optical_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          gripper_camera_depth_optical_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          gripper_camera_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
           gripper_link:
             Alpha: 1
             Show Axes: false
@@ -229,6 +242,19 @@ Visualization Manager:
             Show Axes: false
             Show Trail: false
             Value: true
+          gripper_camera_color_optical_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          gripper_camera_depth_optical_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          gripper_camera_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
           gripper_link:
             Alpha: 1
             Show Axes: false
@@ -275,6 +301,12 @@ Visualization Manager:
           Value: false
         finger4:
           Value: false
+        gripper_camera_color_optical_frame:
+          Value: false
+        gripper_camera_depth_optical_frame:
+          Value: false
+        gripper_camera_link:
+          Value: true
         gripper_link:
           Value: false
         gripper_roll_link:
@@ -302,6 +334,11 @@ Visualization Manager:
                       {}
                     finger4:
                       {}
+                    gripper_camera_link:
+                      gripper_camera_color_optical_frame:
+                        {}
+                      gripper_camera_depth_optical_frame:
+                        {}
           camera_link:
             camera_color_optical_frame:
               {}
@@ -325,7 +362,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 3.3851590156555176
+      Distance: 0.0010000000474974513
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -333,17 +370,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.75
       Focal Point:
-        X: 2.0283360481262207
-        Y: 0.11191748082637787
-        Z: 2.145693302154541
+        X: 2.1360249519348145
+        Y: -1.8567585945129395
+        Z: 1.871294617652893
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.4749998450279236
+      Pitch: 0.3747965097427368
       Target Frame: world
-      Yaw: 5.184943675994873
+      Yaw: 5.929945945739746
     Saved: ~
 Window Geometry:
   Displays:

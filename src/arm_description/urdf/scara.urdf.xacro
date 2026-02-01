@@ -3,8 +3,10 @@
     <xacro:include filename="$(find arm_description)/urdf/base.urdf.xacro"/>
     <xacro:include filename="$(find arm_description)/urdf/robot.ros_control.xacro"/>
     <xacro:include filename="$(find arm_description)/urdf/camera_d435i.urdf.xacro"/>
+    <xacro:include filename="$(find arm_description)/urdf/camera_gripper.urdf.xacro"/>
 
     <xacro:base_xacro/>
     <xacro:robot_ros_control/>
     <xacro:d435i_camera/>
+    <xacro:gripper_camera/>
 </robot>

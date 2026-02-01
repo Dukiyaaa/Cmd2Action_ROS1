@@ -81,7 +81,7 @@ class ScaraController(AbstractController):
     
         return True
 
-    def open_gripper(self, duration: float = 1.0) -> None:
+    def open_gripper(self, duration: float = 0.5) -> None:
         rospy.loginfo("open gripper")
         self.finger1_pub.publish(Float64(-0.02))
         self.finger2_pub.publish(Float64(0.02))
@@ -136,7 +136,7 @@ class ScaraController(AbstractController):
             rospy.logwarn("关节状态数据不完整")
             return None
 
-    def align_gripper_roll(self) -> None:
+    def align_gripper_roll(self, duration: float = 1.0) -> None:
         """
         对齐夹爪朝向：获取当前 yaw 角,然后旋转夹爪使其回到初始朝向(相对于世界坐标系为 0)
 
@@ -146,5 +146,6 @@ class ScaraController(AbstractController):
         if yaw is not None:
             self.gripper_roll_pub.publish(Float64(-yaw))
             rospy.loginfo("旋转夹爪以对齐初始朝向")
+            rospy.sleep(duration)
         else:
             rospy.loginfo("无法获取 gripper_roll yaw 角")
