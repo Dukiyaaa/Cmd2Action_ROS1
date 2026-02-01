@@ -52,7 +52,7 @@ class VisionNode:
         # 发布器
         self.detected_objects_pub = rospy.Publisher('/detected_objects', DetectedObjectPool, queue_size=10)
 
-        # 订阅三个话题，用于获得rgb图像、深度图、相机内参 注意这里的话题名字是在urdf中自己定义的
+        # 订阅三个话题,用于获得rgb图像、深度图、相机内参 注意这里的话题名字是在urdf中自己定义的
         rospy.Subscriber('/camera/color/image_raw', Image, self._rgb_callback)
         rospy.Subscriber('/camera/depth/image_rect_raw', Image, self._depth_callback)
         rospy.Subscriber('/camera/color/camera_info', CameraInfo, self._camera_info_callback)
@@ -98,15 +98,15 @@ class VisionNode:
         return corrected_x, corrected_y
 
     def process_frame(self):
-        # 每次进入该函数时，会获取当前最新图像并处理
+        # 每次进入该函数时,会获取当前最新图像并处理
         with self.lock:
             if self.rgb_image is None or self.depth_image is None:
                 return
-            # 采用拷贝，避免在处理过程中图像被修改
+            # 采用拷贝,避免在处理过程中图像被修改
             rgb = self.rgb_image.copy()
             depth = self.depth_image.copy()
         
-        #urdf，camera_fixed_joint的旋转导致图像需要旋转180度
+        #urdf,camera_fixed_joint的旋转导致图像需要旋转180度
         rgb = cv2.rotate(rgb, cv2.ROTATE_180)
         depth = cv2.rotate(depth, cv2.ROTATE_180)
         # 确保 RGB 是 uint8 且为 3 通道
@@ -116,7 +116,7 @@ class VisionNode:
             else:
                 rgb = rgb.astype(np.uint8)
         
-        if len(rgb.shape) == 2:  # 如果是灰度图，转为 BGR
+        if len(rgb.shape) == 2:  # 如果是灰度图,转为 BGR
             rgb = cv2.cvtColor(rgb, cv2.COLOR_GRAY2BGR)
         elif rgb.shape[2] == 4:  # RGBA 转 BGR
             rgb = cv2.cvtColor(rgb, cv2.COLOR_RGBA2BGR)
@@ -125,7 +125,7 @@ class VisionNode:
         detections = self.detector.detect(rgb)
         if not detections:
             rospy.loginfo_throttle(5.0, "No detections")
-            # 即使没有检测到物体，也显示图像
+            # 即使没有检测到物体,也显示图像
             # cv2.imshow('RGB Image', rgb)
             # cv2.waitKey(1)
             return

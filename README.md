@@ -1,6 +1,6 @@
 # Cmd2Action_ROS1
 
-一个基于 ROS1 的 SCARA 机械臂智能抓取系统，集成了机械臂控制、计算机视觉和深度学习。包含机械臂描述（URDF/Xacro）、MoveIt 配置、Gazebo 仿真、YOLOv8 物体检测，以及 Python 应用节点（话题控制、物体生成、视觉伺服抓取、运动学求解、数据采集）。本项目在 Ubuntu 环境下运行，本文档面向 Ubuntu 用户详细说明环境准备、构建与运行方法、接口与配置、故障排查，以及给其他大模型理解本仓库的快速 Prompt。
+一个基于 ROS1 的 SCARA 机械臂智能抓取系统,集成了机械臂控制、计算机视觉和深度学习。包含机械臂描述（URDF/Xacro）、MoveIt 配置、Gazebo 仿真、YOLOv8 物体检测,以及 Python 应用节点（话题控制、物体生成、视觉伺服抓取、运动学求解、数据采集）。本项目在 Ubuntu 环境下运行,本文档面向 Ubuntu 用户详细说明环境准备、构建与运行方法、接口与配置、故障排查,以及给其他大模型理解本仓库的快速 Prompt。
 
 ---
 
@@ -8,7 +8,7 @@
 
 - 操作系统：推荐 Ubuntu 20.04（ROS Noetic 官方支持）。
 - 必需组件：
-    - ROS Noetic（desktop-full 推荐，包含 Gazebo、Rviz、常用工具）
+    - ROS Noetic（desktop-full 推荐,包含 Gazebo、Rviz、常用工具）
     - MoveIt（Noetic 对应版本）
     - Gazebo ROS 插件与 ros_control（`gazebo_ros`, `gazebo_ros_control`, `controller_manager`, `joint_state_controller`, `effort_controllers`, `position_controllers`）
     - Xacro（URDF 生成使用）
@@ -26,7 +26,7 @@
 参考官方安装指南（简要示例）：
 
 ```bash
-# 设置 ROS 软件源与密钥（略，参考 http://wiki.ros.org/noetic/Installation/Ubuntu ）
+# 设置 ROS 软件源与密钥（略,参考 http://wiki.ros.org/noetic/Installation/Ubuntu ）
 sudo apt update
 sudo apt install -y ros-noetic-desktop-full
 
@@ -55,7 +55,7 @@ source ~/.bashrc
 
 工程根目录：`Cmd2Action_ROS1/`
 
-- `src/CMakeLists.txt`：顶层 catkin 工程入口，指向 Noetic 的 `toplevel.cmake`。
+- `src/CMakeLists.txt`：顶层 catkin 工程入口,指向 Noetic 的 `toplevel.cmake`。
 - `src/arm_description/`：机械臂描述与仿真显示。
     - `urdf/`：`scara.urdf.xacro`, `robot.ros_control.xacro` 等 Xacro/URDF 文件。
     - `config/controllers.yaml`：ros_control 控制器配置。
@@ -67,18 +67,18 @@ source ~/.bashrc
     - `src/gazebo_box_display.py`：通过 Gazebo 服务生成/删除方块（SDF 字符串）。
     - `src/gazebo_cylinder_display.py`：通过 Gazebo 服务生成/删除圆柱体（SDF 字符串）。
     - `src/my_kinematics.py`：简易 SCARA DH 参数、FK/IK（含坐标系修正与可达判断）。
-    - `src/simple_demo.py`：最小演示，生成方块并完成抓取、抬起、回零。
-    - `src/my_scara_action.py`：随机抓取与放置循环，批量测试。
-    - `CMakeLists.txt`：安装 Python 脚本为可执行，依赖 `rospy`, `std_msgs`, `sensor_msgs`, `geometry_msgs`, `gazebo_msgs`。
+    - `src/simple_demo.py`：最小演示,生成方块并完成抓取、抬起、回零。
+    - `src/my_scara_action.py`：随机抓取与放置循环,批量测试。
+    - `CMakeLists.txt`：安装 Python 脚本为可执行,依赖 `rospy`, `std_msgs`, `sensor_msgs`, `geometry_msgs`, `gazebo_msgs`。
 - `src/arm_vision/`：计算机视觉系统包。
-    - `src/vision_node.py`：YOLOv8 物体检测节点，订阅 RGB+Depth 图像，发布检测到的物体 3D 位姿。
-    - `src/my_vision.py`：视觉处理工具类，包含图像坐标到世界坐标的转换。
-    - `src/object_data_collector.py`：数据集采集节点，在 Gazebo 中随机生成物体并采集 RGB 图像。
+    - `src/vision_node.py`：YOLOv8 物体检测节点,订阅 RGB+Depth 图像,发布检测到的物体 3D 位姿。
+    - `src/my_vision.py`：视觉处理工具类,包含图像坐标到世界坐标的转换。
+    - `src/object_data_collector.py`：数据集采集节点,在 Gazebo 中随机生成物体并采集 RGB 图像。
     - `model/best.pt`：训练好的 YOLOv8 模型权重文件。
     - `launch/vision.launch`：视觉系统启动文件。
     - `test_img/`：测试图像目录。
 - `arm_vision_dataset/`：视觉训练数据集。
-    - `images/`：包含数千张 Gazebo 仿真场景的 RGB 图像，用于 YOLOv8 模型训练。
+    - `images/`：包含数千张 Gazebo 仿真场景的 RGB 图像,用于 YOLOv8 模型训练。
 
 ---
 
@@ -102,7 +102,7 @@ catkin_make
 source devel/setup.bash
 ```
 
-构建成功后，`arm_application` 中的 Python 脚本会安装为可运行的 ROS 节点，便于 `rosrun` 调用。
+构建成功后,`arm_application` 中的 Python 脚本会安装为可运行的 ROS 节点,便于 `rosrun` 调用。
 
 ---
 
@@ -125,10 +125,10 @@ roslaunch arm_moveit_config demo_gazebo.launch
 2) 启动演示节点（在新的终端载入工作空间环境后）：
 
 ```bash
-# 最小演示：生成一个方块，抓取并抬起，然后回零
+# 最小演示：生成一个方块,抓取并抬起,然后回零
 rosrun arm_application simple_demo.py
 
-# 随机抓取与放置循环：批量生成方块，执行 pick-and-place 并复位
+# 随机抓取与放置循环：批量生成方块,执行 pick-and-place 并复位
 rosrun arm_application my_scara_action.py
 ```
 
@@ -161,7 +161,7 @@ roslaunch arm_description display.launch
 roslaunch arm_moveit_config demo.launch
 ```
 
-注意：确保控制器话题名称与脚本中一致，例如：
+注意：确保控制器话题名称与脚本中一致,例如：
 
 - `/rotation1_position_controller/command`
 - `/rotation2_position_controller/command`
@@ -171,7 +171,7 @@ roslaunch arm_moveit_config demo.launch
 - `/finger3_position_controller/command`
 - `/finger4_position_controller/command`
 
-这些话题由 ros_control 的 position_controllers 提供，加载时机与命名由 `controllers.yaml` 和相应 launch 决定。
+这些话题由 ros_control 的 position_controllers 提供,加载时机与命名由 `controllers.yaml` 和相应 launch 决定。
 
 ### 4.2 MoveIt + Rviz 显示与交互（可选）
 
@@ -215,7 +215,7 @@ roslaunch arm_moveit_config demo.launch
 - `/gazebo/spawn_sdf_model`（`gazebo_msgs/SpawnModel`）：生成 SDF 模型。
 - `/gazebo/delete_model`（`gazebo_msgs/DeleteModel`）：删除模型。
 
-`gazebo_box_display.py` 和 `gazebo_cylinder_display.py` 使用上述服务生成具有惯性、材质与接触参数的几何体，并支持指定位置、尺寸、颜色与质量。
+`gazebo_box_display.py` 和 `gazebo_cylinder_display.py` 使用上述服务生成具有惯性、材质与接触参数的几何体,并支持指定位置、尺寸、颜色与质量。
 
 ---
 
@@ -226,9 +226,9 @@ roslaunch arm_moveit_config demo.launch
     - 竖向偏距：`d1=0.4`, `d2=0.1`
     - 竖向关节范围：`d3 ∈ [-0.5, 0.0]`
 - 前向运动学：`forward_kinematics(theta1, theta2, d3)` 返回 4x4 变换矩阵。
-- 逆运动学：`inverse_kinematics(x, y, z, elbow="down")` 返回 `(theta1, theta2, d3, reachable)`，含可达性判断与坐标系修正（代码中将目标平面坐标进行 `x, y = -y, x` 的旋转修正以匹配 URDF 初始朝向）。
+- 逆运动学：`inverse_kinematics(x, y, z, elbow="down")` 返回 `(theta1, theta2, d3, reachable)`,含可达性判断与坐标系修正（代码中将目标平面坐标进行 `x, y = -y, x` 的旋转修正以匹配 URDF 初始朝向）。
 
-该 IK 足以驱动示例任务，但未包含碰撞检测、速度/加速度限制与轨迹平滑；若需更复杂运动，请使用 MoveIt 的规划管线与 `FollowJointTrajectory` 控制器。
+该 IK 足以驱动示例任务,但未包含碰撞检测、速度/加速度限制与轨迹平滑；若需更复杂运动,请使用 MoveIt 的规划管线与 `FollowJointTrajectory` 控制器。
 
 ---
 
@@ -237,7 +237,7 @@ roslaunch arm_moveit_config demo.launch
 ### 7.1 YOLOv8 物体检测
 
 - 使用 Ultralytics YOLOv8 进行实时物体检测
-- 支持 RGB+Depth 相机输入，输出 3D 物体位姿
+- 支持 RGB+Depth 相机输入,输出 3D 物体位姿
 - 默认模型：`best.pt`（可在启动时通过参数指定）
 - 检测置信度阈值可配置（默认 0.45）
 - 支持类别过滤（默认检测所有类别）
@@ -265,42 +265,42 @@ roslaunch arm_moveit_config demo.launch
 
 1) 初始化 ROS 节点与控制器话题发布器；
 2) 调用 Gazebo 服务生成一个小方块；
-3) 通过 IK 计算抓取位姿，移动到目标，关闭夹爪，抬起方块；
-4) 回到初始位置，打开夹爪；
+3) 通过 IK 计算抓取位姿,移动到目标,关闭夹爪,抬起方块；
+4) 回到初始位置,打开夹爪；
 5) 保持节点运行以便查看与调试。
 
 ### 7.2 `my_scara_action.py`
 
 1) 初始化并打开夹爪；
-2) 多轮随机测试：生成方块位置与放置位置，检查 IK 可达；
+2) 多轮随机测试：生成方块位置与放置位置,检查 IK 可达；
 3) 执行 pick-and-place：下压抓取、抬起、移动到放置点、放下、抬起；
 4) 复位并删除方块；
-5) 轮次结束后继续下一轮，最终完成所有测试。
+5) 轮次结束后继续下一轮,最终完成所有测试。
 
 ---
 
 ## 8. 故障排查
 
-- Gazebo 服务不可用：确认已启动 `gazebo.launch` 或 `demo_gazebo.launch`，并等待 `/gazebo/spawn_sdf_model` 与 `/gazebo/delete_model` 服务就绪。
-- 控制器话题未发布或命名不一致：检查 `arm_description/config/controllers.yaml` 与对应 `launch` 是否加载了 position_controllers，且话题名称与脚本一致。
-- IK 返回不可达：检查目标坐标是否在臂展范围内（`r ∈ [|a1-a2|, a1+a2]`），并且 `z` 满足竖向关节范围；注意坐标系修正的影响。
+- Gazebo 服务不可用：确认已启动 `gazebo.launch` 或 `demo_gazebo.launch`,并等待 `/gazebo/spawn_sdf_model` 与 `/gazebo/delete_model` 服务就绪。
+- 控制器话题未发布或命名不一致：检查 `arm_description/config/controllers.yaml` 与对应 `launch` 是否加载了 position_controllers,且话题名称与脚本一致。
+- IK 返回不可达：检查目标坐标是否在臂展范围内（`r ∈ [|a1-a2|, a1+a2]`）,并且 `z` 满足竖向关节范围；注意坐标系修正的影响。
 - 夹爪接触不稳定或未抓牢：适当调整方块的接触参数、摩擦与质量；在应用脚本中增加闭合时序和等待时间。
-- MoveIt 显示异常或规划失败：确认 URDF/Xacro 与 SRDF 的一致性，确保 `move_group` 正常启动。
-- 视觉节点启动失败：检查 PyTorch 和 ultralytics 是否正确安装，确保 CUDA 版本兼容。
-- YOLO 检测无结果：确认相机话题正常发布，检查模型路径和置信度阈值设置。
-- 深度坐标转换异常：验证相机内参是否正确获取，检查深度值单位（应为米或毫米会自动转换）。
-- 数据采集图像异常：注意 URDF 中相机固定关节的旋转会影响图像朝向，节点已自动处理 180°旋转校正。
+- MoveIt 显示异常或规划失败：确认 URDF/Xacro 与 SRDF 的一致性,确保 `move_group` 正常启动。
+- 视觉节点启动失败：检查 PyTorch 和 ultralytics 是否正确安装,确保 CUDA 版本兼容。
+- YOLO 检测无结果：确认相机话题正常发布,检查模型路径和置信度阈值设置。
+- 深度坐标转换异常：验证相机内参是否正确获取,检查深度值单位（应为米或毫米会自动转换）。
+- 数据采集图像异常：注意 URDF 中相机固定关节的旋转会影响图像朝向,节点已自动处理 180°旋转校正。
 
 ---
 
 ## 9. 扩展与改进建议
 
-- 增加应用层 `launch`，一键启动 Gazebo + 控制器 + Demo 节点。
-- 为 `my_kinematics.py` 增加单元测试，覆盖可达/不可达边界与数值稳定性。
-- 迁移控制到 `FollowJointTrajectory` 接口，并使用 MoveIt 进行路径规划与执行，提升轨迹平滑与安全性。
-- 完善 `README` 的控制器与关节名对照表，给出 URDF 关节映射到 controller 的说明。
+- 增加应用层 `launch`,一键启动 Gazebo + 控制器 + Demo 节点。
+- 为 `my_kinematics.py` 增加单元测试,覆盖可达/不可达边界与数值稳定性。
+- 迁移控制到 `FollowJointTrajectory` 接口,并使用 MoveIt 进行路径规划与执行,提升轨迹平滑与安全性。
+- 完善 `README` 的控制器与关节名对照表,给出 URDF 关节映射到 controller 的说明。
 - 增加 CI（例如基于 GitHub Actions 的语法检查与静态测试）。
-- 扩展视觉系统：支持更多物体类别训练，增加实例分割功能。
+- 扩展视觉系统：支持更多物体类别训练,增加实例分割功能。
 - 实现视觉伺服控制：将视觉检测结果直接用于闭环抓取控制。
 - 添加多相机支持和传感器融合功能。
 - 集成强化学习：基于视觉反馈的智能抓取策略学习。
@@ -315,20 +315,20 @@ roslaunch arm_moveit_config demo.launch
 
 ## 11. 给大模型的快速理解 Prompt
 
-将以下 Prompt 提供给其他大模型，以便快速理解本仓库并给出针对性的帮助或分析：
+将以下 Prompt 提供给其他大模型,以便快速理解本仓库并给出针对性的帮助或分析：
 
 ```
-你正在阅读一个 ROS1 工程仓库（Ubuntu 环境运行），仓库名为 Cmd2Action_ROS1。这是一个集成了计算机视觉的 SCARA 机械臂智能抓取系统，包含四个核心包：
+你正在阅读一个 ROS1 工程仓库（Ubuntu 环境运行）,仓库名为 Cmd2Action_ROS1。这是一个集成了计算机视觉的 SCARA 机械臂智能抓取系统,包含四个核心包：
 
 - arm_description：提供 SCARA 机械臂的 URDF/Xacro、ros_control 控制器配置、Gazebo 与 Rviz 的 launch。
-- arm_moveit_config：MoveIt 自动生成的配置与多种规划管线的 launch（OMPL/CHOMP/STOMP），以及 Rviz/MoveGroup。
-- arm_application：Python 应用节点（rospy），通过 position_controller 的话题控制关节、调用 Gazebo 服务生成/删除几何体（方块/圆柱体），并包含简易的 FK/IK（my_kinematics.py）。
-- arm_vision：计算机视觉系统，使用 YOLOv8 进行物体检测，包含数据采集和 3D 位姿估计。
+- arm_moveit_config：MoveIt 自动生成的配置与多种规划管线的 launch（OMPL/CHOMP/STOMP）,以及 Rviz/MoveGroup。
+- arm_application：Python 应用节点（rospy）,通过 position_controller 的话题控制关节、调用 Gazebo 服务生成/删除几何体（方块/圆柱体）,并包含简易的 FK/IK（my_kinematics.py）。
+- arm_vision：计算机视觉系统,使用 YOLOv8 进行物体检测,包含数据采集和 3D 位姿估计。
 
 关键接口：
 - 机械臂控制话题（Float64）：/rotation1_position_controller/command, /rotation2_position_controller/command, /gripper_position_controller/command, /finger1_position_controller/command, /finger2_position_controller/command, /finger3_position_controller/command, /finger4_position_controller/command。
-- 传感器话题：/joint_states（JointState），/camera/color/image_raw（RGB），/camera/depth/image_rect_raw（Depth）。
-- 视觉输出话题：/detected_objects（PoseStamped，检测到的物体 3D 位姿）。
+- 传感器话题：/joint_states（JointState）,/camera/color/image_raw（RGB）,/camera/depth/image_rect_raw（Depth）。
+- 视觉输出话题：/detected_objects（PoseStamped,检测到的物体 3D 位姿）。
 - Gazebo 服务：/gazebo/spawn_sdf_model 与 /gazebo/delete_model。
 
 典型运行流程：

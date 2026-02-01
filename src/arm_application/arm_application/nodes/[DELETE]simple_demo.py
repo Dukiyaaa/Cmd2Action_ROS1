@@ -30,7 +30,7 @@ box_z = 0.05
 class ObjectDetector:
     """
     物体检测订阅器
-    只负责订阅检测话题并保存检测结果，不发布任何控制命令
+    只负责订阅检测话题并保存检测结果,不发布任何控制命令
     实际的抓取动作由 ArmController 执行
     """
     def __init__(self):
@@ -42,14 +42,14 @@ class ObjectDetector:
         self.detected_object_pos = None
         self.is_processing = False  # 标记是否正在处理检测结果
         
-        rospy.loginfo('[ObjectDetector] 检测器已初始化，等待检测物体...')
+        rospy.loginfo('[ObjectDetector] 检测器已初始化,等待检测物体...')
         
         # 等待话题建立连接
         rospy.sleep(1.0)
 
     def _detect_callback(self, msg):
         """检测到的物体回调函数 - 直接提取坐标"""
-        # 如果正在处理，跳过新的检测
+        # 如果正在处理,跳过新的检测
         if self.is_processing:
             return
         
@@ -68,8 +68,8 @@ class ObjectDetector:
         处理检测到的物体：执行抓取和放置
         
         参数:
-            arm_controller: ArmController 实例，用于执行抓取动作
-            place_pos: 放置位置 (x, y, z)，如果为None则使用默认位置
+            arm_controller: ArmController 实例,用于执行抓取动作
+            place_pos: 放置位置 (x, y, z),如果为None则使用默认位置
         """
         if self.detected_object_pos is None:
             rospy.logwarn("[处理检测] 没有检测到物体")
@@ -77,7 +77,7 @@ class ObjectDetector:
         
         pick_pos = self.detected_object_pos
         
-        # 如果没有指定放置位置，使用默认位置
+        # 如果没有指定放置位置,使用默认位置
         if place_pos is None:
             place_pos = (0.8, -0.65, pick_pos[2] + 0.032)  # 默认放置位置
         
@@ -90,7 +90,7 @@ class ObjectDetector:
             arm_controller.pick_and_place(pick_pos, place_pos)
             rospy.loginfo("[处理检测] 抓取任务完成")
             arm_controller.arm_reset()
-            # 清空检测结果，避免重复执行
+            # 清空检测结果,避免重复执行
             self.detected_object_pos = None
             return True
         except Exception as e:
@@ -104,7 +104,7 @@ def main():
         rospy.init_node('simple_demo')
         arm_controller = ArmController()
         
-        # 创建 ObjectDetector 用于订阅检测话题（只订阅，不发布控制命令）
+        # 创建 ObjectDetector 用于订阅检测话题（只订阅,不发布控制命令）
         object_detector = ObjectDetector()
         
         # 初始化世界（生成测试方块等）
@@ -113,7 +113,7 @@ def main():
         # 固定放置位置
         place_pos = (0.0, -1.8, 0.05)
 
-        # 随机生成 5 轮方块位置：只生成方块，不生成圆柱
+        # 随机生成 5 轮方块位置：只生成方块,不生成圆柱
         # 说明：这里生成的方块位置仅用于 Gazebo 展示；实际抓取坐标以视觉话题为准
         box_z = 0.05
         min_x, max_x = 0.3, 1.0
@@ -134,7 +134,7 @@ def main():
         #     cyl_pos=(cylinder_x, cylinder_y, box_z),
         #     cyl_name="green_cylinder"
         # )   
-        rospy.loginfo("=== 将随机生成 5 轮方块，并等待视觉输出坐标后抓取 ===")
+        rospy.loginfo("=== 将随机生成 5 轮方块,并等待视觉输出坐标后抓取 ===")
         rospy.loginfo(f"=== 固定放置位置: ({place_pos[0]:.3f}, {place_pos[1]:.3f}, {place_pos[2]:.3f}) ===")
 
         for i in range(5):
@@ -158,13 +158,13 @@ def main():
                     break
 
             if not success:
-                rospy.logerr(f"[Round {i+1}/5] 生成方块失败（尝试 {max_attempts} 次仍不可达），跳过该轮")
+                rospy.logerr(f"[Round {i+1}/5] 生成方块失败（尝试 {max_attempts} 次仍不可达）,跳过该轮")
                 continue
 
             rospy.loginfo(f"[Round {i+1}/5] 方块已生成: name={box_name}, pos=({box_x:.3f}, {box_y:.3f}, {box_z:.3f})")
 
             # 等待视觉模型推理出的坐标（/detected_objects）
-            # 用时间戳防止拿到上一轮的旧坐标：先清空，再等待新值
+            # 用时间戳防止拿到上一轮的旧坐标：先清空,再等待新值
             # object_detector.detected_object_pos = None
             # wait_timeout_s = 15.0
             # start_t = time.time()
@@ -173,7 +173,7 @@ def main():
             # rospy.loginfo(f"[Round {i+1}/5] 等待视觉坐标（超时 {wait_timeout_s:.1f}s）...")
             # while not rospy.is_shutdown() and object_detector.detected_object_pos is None:
             #     if time.time() - start_t > wait_timeout_s:
-            #         rospy.logwarn(f"[Round {i+1}/5] 等待视觉坐标超时，跳过该轮")
+            #         rospy.logwarn(f"[Round {i+1}/5] 等待视觉坐标超时,跳过该轮")
             #         arm_controller.box.delete_entity(box_name)
             #         break
             #     rate.sleep()
@@ -192,13 +192,13 @@ def main():
             #         place_pos=place_pos
             #     )
             #     if ok:
-            #         rospy.loginfo(f"[Round {i+1}/5] 抓取放置完成，继续下一轮")
+            #         rospy.loginfo(f"[Round {i+1}/5] 抓取放置完成,继续下一轮")
             #     else:
-            #         rospy.logwarn(f"[Round {i+1}/5] 抓取放置失败，继续下一轮")
+            #         rospy.logwarn(f"[Round {i+1}/5] 抓取放置失败,继续下一轮")
             # finally:
             #     object_detector.is_processing = False
             #     arm_controller.box.delete_entity(box_name)
-        rospy.loginfo("=== 5 轮完成（或提前结束），进入 spin 保持节点运行 ===")
+        rospy.loginfo("=== 5 轮完成（或提前结束）,进入 spin 保持节点运行 ===")
         rospy.spin()
         
     except rospy.ROSInterruptException:

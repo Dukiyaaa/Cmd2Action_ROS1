@@ -8,7 +8,7 @@ class TaskPlanner:
     def plan(self, task: dict) -> List[Tuple[str, ...]]:
         """
         输入: 结构化任务描述（由 Agent 构造）
-        输出: 动作序列，每个动作是 (方法名, *参数) 的元组
+        输出: 动作序列,每个动作是 (方法名, *参数) 的元组
         
         示例输入:
             task:{"action": "pick_and_place", "object": (0.3, 0.2, 0.1), "target": (0.5, -0.1, 0.05)}

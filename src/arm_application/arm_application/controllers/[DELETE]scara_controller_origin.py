@@ -46,5 +46,5 @@ if __name__ == '__main__':
     rospy.init_node('scara_controller')
     arm_controller = ArmController()
     s = rospy.Service('/execute_task', AgentCommands, handle_task)
-    rospy.loginfo("控制器已启动，等待任务...")
+    rospy.loginfo("控制器已启动,等待任务...")
     rospy.spin()

@@ -23,17 +23,17 @@ class YOLODetector:
 
     def detect(self, rgb_image):
         """
-        输入 RGB 图像，返回检测结果列表：[box, score, class_id, center_u, center_v]
+        输入 RGB 图像,返回检测结果列表：[box, score, class_id, center_u, center_v]
         仅返回uv,深度还需要进一步匹配
         """
         results = self.model(rgb_image, conf=self.conf_thres, verbose=False, device=self.device)
-        # 有几张图片，result就有几项
+        # 有几张图片,result就有几项
         result = results[0]
         
         if result is None or result.boxes is None:
             return []
         
-        # Ultrayltics 的result对象自动带boxes这个属性 这个属性是监测框，内含xyxy,conf,cls
+        # Ultrayltics 的result对象自动带boxes这个属性 这个属性是监测框,内含xyxy,conf,cls
         boxes = result.boxes
         xyxy = boxes.xyxy.cpu().numpy()
         scores = boxes.conf.cpu().numpy()

@@ -91,7 +91,7 @@ class ArmController:
         通过正向运动学计算：yaw = rotation1 + rotation2 + gripper_roll
         
         返回:
-            float: yaw 角度值（弧度），如果未获取到则返回 None
+            float: yaw 角度值（弧度）,如果未获取到则返回 None
         """
         if self.current_joint_state is None:
             rospy.logwarn("尚未接收到关节状态信息")
@@ -120,7 +120,7 @@ class ArmController:
 
     def align_gripper_roll(self):
         """
-        对齐夹爪朝向：获取当前 yaw 角，然后旋转夹爪使其回到初始朝向（相对于世界坐标系为 0）
+        对齐夹爪朝向：获取当前 yaw 角,然后旋转夹爪使其回到初始朝向（相对于世界坐标系为 0）
         """
         yaw = self.get_gripper_roll_yaw()
         if yaw is not None:
@@ -207,7 +207,7 @@ class ArmController:
         rospy.loginfo("前往抓取目标上方")
         self.move_arm_simple(theta1_c, theta2_c, d3_c, duration=3.0)
 
-        # 在夹爪移动到物体上方后，对齐夹爪朝向
+        # 在夹爪移动到物体上方后,对齐夹爪朝向
         self.align_gripper_roll()
         
         rospy.loginfo("下降夹爪")
@@ -245,7 +245,7 @@ class ArmController:
         rospy.loginfo("前往抓取目标上方")
         self.move_arm_simple(theta1_c, theta2_c, d3_c, duration=3.0)
 
-        # 在夹爪移动到物体上方后，对齐夹爪朝向
+        # 在夹爪移动到物体上方后,对齐夹爪朝向
         self.align_gripper_roll()
         
         rospy.loginfo("下降夹爪")
@@ -297,7 +297,7 @@ class ArmController:
         )
         
         if success:
-            rospy.loginfo("方块 '%s' 生成成功，位置在夹取范围内" % box_name)
+            rospy.loginfo("方块 '%s' 生成成功,位置在夹取范围内" % box_name)
         return success
 
     def display_test_cylinder(self, cyl_pos, radius=0.015, length=0.032,
@@ -339,7 +339,7 @@ class ArmController:
         )
 
         if success:
-            rospy.loginfo("圆柱体 '%s' 生成成功，位置在夹取范围内" % cyl_name)
+            rospy.loginfo("圆柱体 '%s' 生成成功,位置在夹取范围内" % cyl_name)
         return success
 
 def main():
@@ -379,7 +379,7 @@ def main():
             )
             
             if not success:
-                rospy.logwarn("第 %d 轮测试失败: 方块生成失败，跳过本轮" % (i+1))
+                rospy.logwarn("第 %d 轮测试失败: 方块生成失败,跳过本轮" % (i+1))
                 continue
             
             # 执行抓取和放置
@@ -398,7 +398,7 @@ def main():
             # 等待一下再进行下一轮
             rospy.sleep(1.0)
         
-        rospy.loginfo("=== 所有测试完成，按 Ctrl+C 退出 ===")
+        rospy.loginfo("=== 所有测试完成,按 Ctrl+C 退出 ===")
         rospy.spin()
         
     except rospy.ROSInterruptException:

@@ -28,7 +28,7 @@ class Agent:
 
         # 订阅 LLM 指令 用于llm向agent发解析后的需求
         self.sub = rospy.Subscriber('/llm_commands', LLMCommands, self._llm_callback)
-        rospy.loginfo("Agent 已启动，等待 LLM 指令...")
+        rospy.loginfo("Agent 已启动,等待 LLM 指令...")
         
     def _llm_callback(self, msg):            
         if msg.action_type == "pick":

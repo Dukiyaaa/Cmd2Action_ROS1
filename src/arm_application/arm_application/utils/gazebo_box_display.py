@@ -3,7 +3,7 @@
 """
 Gazebo Box Display Utilities (ROS1 Version)
 在 Gazebo 中生成/删除指定尺寸与位置的方块。
-用法: 在你的 ROS1 节点中实例化 BoxSpawner()，然后调用 spawn_box/delete_entity。
+用法: 在你的 ROS1 节点中实例化 BoxSpawner(),然后调用 spawn_box/delete_entity。
 """
 
 import rospy
@@ -13,7 +13,7 @@ import math
 
 class BoxSpawner:
     def __init__(self):
-        """初始化 BoxSpawner，创建服务客户端"""
+        """初始化 BoxSpawner,创建服务客户端"""
         # 等待 Gazebo 服务就绪
         rospy.wait_for_service('/gazebo/spawn_sdf_model')
         rospy.wait_for_service('/gazebo/delete_model')
@@ -175,7 +175,7 @@ class BoxSpawner:
         )
         
         # if success:
-            # rospy.loginfo("方块 '%s' 生成成功，位置在夹取范围内" % box_name)
+            # rospy.loginfo("方块 '%s' 生成成功,位置在夹取范围内" % box_name)
         # return success
 
     def delete_entity(self, name):

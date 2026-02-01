@@ -4,20 +4,20 @@ import numpy as np
 # dh表
 @dataclass(frozen=True)
 class SCARAParameters:
-    # a参数，表示延x方向上z轴的偏距，实际可理解为杆长
+    # a参数,表示延x方向上z轴的偏距,实际可理解为杆长
     a0: float = 0.0
     a1: float = 1.0
     a2: float = 0.8
-    # alpha参数，表示延x方向上z轴的偏角
+    # alpha参数,表示延x方向上z轴的偏角
     alpha0: float = 0.0
     alpha1: float = 0.0
     alpha2: float = 0.0
-    # d参数，表示沿z轴方向上x轴的偏距
+    # d参数,表示沿z轴方向上x轴的偏距
     d1: float = 0.4
     d2: float = 0.1
     d3_min: float = -0.5
     d3_max: float = 0.0
-    # thta参数为关节角，下面为角度限制范围
+    # thta参数为关节角,下面为角度限制范围
     theta1_min: float = -np.pi * 2
     theta1_max: float = np.pi * 2
     theta2_min: float = -np.pi * 2
@@ -45,8 +45,8 @@ def DHTransform(a: float, alpha: float, d: float, theta: float) -> np.ndarray:
     return T
 
 
-# 前向运动学，返回一个转换矩阵
-# 三个参数的含义:关节1旋转角，关节2旋转角，关节3位移
+# 前向运动学,返回一个转换矩阵
+# 三个参数的含义:关节1旋转角,关节2旋转角,关节3位移
 def forward_kinematics(theta1: float, theta2: float, d3: float) -> np.ndarray:
     theta1, theta2, d3 = clamp_joint_values(theta1, theta2, d3)
     # a,alpha为i-1,d,theta为i
@@ -58,9 +58,9 @@ def forward_kinematics(theta1: float, theta2: float, d3: float) -> np.ndarray:
     T0_3 = T0_1 @ T1_2 @ T2_3
     return T0_3
     # 目前算出来的结果有如下现象
-    # Xt = -Y实， Yt = X实，也就是说，算出来的结果为实际结果绕z轴旋转了90度，
-    # 为什么会有这样的结果，是因为该urdf再初始化加载scara时，默认的朝向是向着-y轴的，也就是绕z轴旋转了90度的结果
-    # 所以，要想让结果和pybullet中一致，需要将算出来的矩阵再绕z轴旋转-90度;或者说，在初始状态时，就把scara的朝向改为朝向x轴
+    # Xt = -Y实, Yt = X实,也就是说,算出来的结果为实际结果绕z轴旋转了90度,
+    # 为什么会有这样的结果,是因为该urdf再初始化加载scara时,默认的朝向是向着-y轴的,也就是绕z轴旋转了90度的结果
+    # 所以,要想让结果和pybullet中一致,需要将算出来的矩阵再绕z轴旋转-90度;或者说,在初始状态时,就把scara的朝向改为朝向x轴
 
 
 # 加入范围限制
@@ -107,7 +107,7 @@ def inverse_kinematics(x: float, y: float, z: float, elbow: str = "down"):
 
 
 if __name__ == "__main__":
-    # 简单测试：目标点来自正向再求逆，看误差
+    # 简单测试：目标点来自正向再求逆,看误差
     tests = [
         (0.5, 0.5, 0.4),
         (0.3, -1.2, 0.25),

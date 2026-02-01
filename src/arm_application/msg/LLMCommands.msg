@@ -4,15 +4,15 @@
 string action_type    # "pick", "place", "pick_place", "reset", "open_gripper", "close_gripper"
                       # "create", "delete" 这两个命令用来生成测试的物体,专门用来调试
 # === 抓取目标 ===
-int32 object_class_id # 物体类别 ID，-1 表示无（如 reset）
-string object_name    # 语义名称，仅用于日志/调试（如 "red_block"）
+int32 object_class_id # 物体类别 ID,-1 表示无（如 reset）
+string object_name    # 语义名称,仅用于日志/调试（如 "red_block"）
 float32 object_x      # 显式抓取坐标（若提供）
 float32 object_y
 float32 object_z
 
 # === 放置目标 ===
-int32 target_class_id # 放置目标类别 ID，-1 表示无
-string target_name    # 语义名称，仅用于日志/调试（如 "blue_tray"）
+int32 target_class_id # 放置目标类别 ID,-1 表示无
+string target_name    # 语义名称,仅用于日志/调试（如 "blue_tray"）
 float32 target_x      # 显式放置坐标（若提供）
 float32 target_y
 float32 target_z

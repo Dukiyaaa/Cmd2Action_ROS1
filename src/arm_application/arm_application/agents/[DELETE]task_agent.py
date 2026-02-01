@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Agent 模块：接收 LLM 指令，查询视觉数据，执行 pick-and-place 任务
+Agent 模块：接收 LLM 指令,查询视觉数据,执行 pick-and-place 任务
 """
 
 import rospy
@@ -21,7 +21,7 @@ class ObjectDetector:
     def __init__(self):
         self.detected_objects = {}  # {class_id (int): (x, y, z)}
         self.sub = rospy.Subscriber('/detected_objects', DetectedObjectPool, self._callback)
-        rospy.loginfo('[ObjectDetector] 初始化完成，等待视觉数据...')
+        rospy.loginfo('[ObjectDetector] 初始化完成,等待视觉数据...')
 
     def _callback(self, msg):
         self.detected_objects.clear()
@@ -47,7 +47,7 @@ class TaskAgent:
         
         # 订阅 LLM 指令 用于llm向agent发解析后的需求
         self.sub = rospy.Subscriber('/llm_commands', LLMCommands, self._llm_callback)
-        rospy.loginfo("Agent 已启动，等待 LLM 指令...")
+        rospy.loginfo("Agent 已启动,等待 LLM 指令...")
 
     def _llm_callback(self, msg):
         rospy.loginfo("收到 LLM 指令: action='%s', class_id=%d" % (msg.action_type, msg.target_class_id))
@@ -98,7 +98,7 @@ class TaskAgent:
 def main():
     rospy.init_node('task_agent')
     agent = TaskAgent()
-    rospy.spin()  # 保持节点运行，监听 LLM 指令
+    rospy.spin()  # 保持节点运行,监听 LLM 指令
 
 
 if __name__ == '__main__':

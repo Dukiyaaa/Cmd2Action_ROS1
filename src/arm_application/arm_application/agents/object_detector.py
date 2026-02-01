@@ -6,7 +6,7 @@ class ObjectDetector:
     def __init__(self):
         self.detected_objects = {}  # {class_id (int): (x, y, z)}
         self.sub = rospy.Subscriber('/detected_objects', DetectedObjectPool, self._callback)
-        rospy.loginfo('[ObjectDetector] 初始化完成，等待视觉数据...')
+        rospy.loginfo('[ObjectDetector] 初始化完成,等待视觉数据...')
 
     def _callback(self, msg):
         self.detected_objects.clear()

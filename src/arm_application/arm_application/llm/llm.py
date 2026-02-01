@@ -27,7 +27,7 @@ class TongyiQianwenLLM:
         # 初始化ROS发布器
         self.pub = rospy.Publisher('/llm_commands', LLMCommands, queue_size=10)
         self.sub = rospy.Subscriber('/llm_user_input', String, self._user_input_callback)
-        rospy.loginfo("LLM 节点已启动，等待用户输入...")
+        rospy.loginfo("LLM 节点已启动,等待用户输入...")
     
     def _user_input_callback(self, msg):
         """处理用户输入话题的回调函数

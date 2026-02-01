@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 视觉网格测试脚本
-在指定范围内以固定间隔生成方块，测试视觉检测精度
+在指定范围内以固定间隔生成方块,测试视觉检测精度
 """
 
 import sys
@@ -46,7 +46,7 @@ def main():
     y_points = int((y_max - y_min) / step) + 1
     total_points = x_points * y_points
     
-    rospy.loginfo(f"开始视觉网格测试，总测试点: {total_points}")
+    rospy.loginfo(f"开始视觉网格测试,总测试点: {total_points}")
     rospy.loginfo(f"测试范围: x[{x_min:.2f}, {x_max:.2f}], y[{y_min:.2f}, {y_max:.2f}], z={z:.2f}")
     rospy.loginfo(f"测试间隔: {step:.2f}")
     

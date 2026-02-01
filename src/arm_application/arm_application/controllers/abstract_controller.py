@@ -9,7 +9,7 @@ from typing import Tuple, Optional
 class AbstractController(ABC):
     """
     所有机械臂控制器的抽象基类。
-    定义了统一的接口，确保不同机械臂可以被同一套规划器调用。
+    定义了统一的接口,确保不同机械臂可以被同一套规划器调用。
     """
     @abstractmethod
     def move_to(self, x: float, y: float, z: float, duration: float = 1.0) -> bool:

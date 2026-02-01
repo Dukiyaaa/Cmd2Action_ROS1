@@ -7,7 +7,7 @@
 
     <!-- 将 xacro 转换为 URDF 并设置到参数服务器 
     ROS 约定：robot_state_publisher、RViz 的 RobotModel 
-    显示器默认都会从参数服务器读取 robot_description 这个名字的参数，
+    显示器默认都会从参数服务器读取 robot_description 这个名字的参数,
     里面应是完整的 URDF-->
     <param name="robot_description" command="xacro $(arg model)"/>
 

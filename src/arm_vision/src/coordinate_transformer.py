@@ -13,7 +13,7 @@ class CoordinateTransformer:
         self.tf_buffer = tf2_ros.Buffer()
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
         # 相机内参（从 camera_info 获取）
-        #内参矩阵，fx, fy, cx, cy在这个矩阵中获得
+        #内参矩阵,fx, fy, cx, cy在这个矩阵中获得
         self.camera_matrix = None 
         # 畸变系数
         self.dist_coeffs = None 
@@ -49,7 +49,7 @@ class CoordinateTransformer:
             rospy.logwarn(f"TF transform failed: {e}")
             return None
         
-    # 世界转图像上的坐标，但这里的转换并不完全，只是转了一下坐标轴，由于焦距参数单位问题，没办法单独得到图像坐标(mm)
+    # 世界转图像上的坐标,但这里的转换并不完全,只是转了一下坐标轴,由于焦距参数单位问题,没办法单独得到图像坐标(mm)
     def world_to_image_coordinate(self, x_world, y_world, z_world):
         ps = PointStamped()
         ps.header.stamp = rospy.Time(0)
@@ -67,7 +67,7 @@ class CoordinateTransformer:
             rospy.logwarn(f"TF transform failed: {e}")
             return None
         
-    # 直接从世界坐标到像素坐标，中间包含世界坐标转图像坐标的部分过程
+    # 直接从世界坐标到像素坐标,中间包含世界坐标转图像坐标的部分过程
     def world_to_pixel_coordinate(self, x_world, y_world, z_world):
         ps = PointStamped()
         ps.header.stamp = rospy.Time(0)

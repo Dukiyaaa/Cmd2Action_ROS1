@@ -106,9 +106,9 @@ class ScaraController(AbstractController):
         """
         获取 gripper_roll_link 在世界坐标系中的 yaw 角（弧度）
         通过正向运动学计算:yaw = rotation1 + rotation2 + gripper_roll
-        
+        注意,这里的关节角、夹爪角都是相对于自身joint的转角,不是世界坐标系的转角
         返回:
-            float: yaw 角度值（弧度），如果未获取到则返回 None
+            float: yaw 角度值（弧度）,如果未获取到则返回 None
         """
         if self.current_joint_state is None:
             rospy.logwarn("尚未接收到关节状态信息")
@@ -138,7 +138,8 @@ class ScaraController(AbstractController):
 
     def align_gripper_roll(self) -> None:
         """
-        对齐夹爪朝向：获取当前 yaw 角，然后旋转夹爪使其回到初始朝向(相对于世界坐标系为 0)
+        对齐夹爪朝向：获取当前 yaw 角,然后旋转夹爪使其回到初始朝向(相对于世界坐标系为 0)
+
         """
         yaw = self._get_gripper_roll_yaw()
         rospy.loginfo(f"当前 gripper_roll yaw 角: {yaw:.3f} rad ({np.degrees(yaw):.1f} 度)")

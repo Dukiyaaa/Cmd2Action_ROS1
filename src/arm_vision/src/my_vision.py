@@ -27,7 +27,7 @@ class VisionNode:
         self.lock = threading.Lock()
         
         # 相机内参（从 camera_info 获取）
-        #内参矩阵，fx, fy, cx, cy在这个矩阵中获得
+        #内参矩阵,fx, fy, cx, cy在这个矩阵中获得
         self.camera_matrix = None 
         # 畸变系数
         self.dist_coeffs = None 
@@ -50,7 +50,7 @@ class VisionNode:
         # 加入YOLO
         print("[DEBUG] Loading params...", flush=True)
         # 通过launch文件获取参数 逗号后面是默认参数
-        # 获取包路径，构建相对路径
+        # 获取包路径,构建相对路径
         rospack = rospkg.RosPack()
         package_path = rospack.get_path('arm_vision')
         default_model_path = os.path.join(package_path, 'model', 'best.pt')
@@ -63,7 +63,7 @@ class VisionNode:
             self.device = device_param
         self.class_filter = set(rospy.get_param('~class_filter', []))  # e.g. [0] for person, [] for all
 
-        # 测试用：从文件读取一帧 RGB/Depth，而不使用订阅的实时话题
+        # 测试用：从文件读取一帧 RGB/Depth,而不使用订阅的实时话题
         self.test_rgb_path = rospy.get_param('~test_rgb_path', None)
         self.test_depth_path = rospy.get_param('~test_depth_path', None)
         
@@ -79,7 +79,7 @@ class VisionNode:
         # 发布检测到的物体池（包含位姿、类别ID和置信度）
         self.detected_objects_pub = rospy.Publisher('/detected_objects', DetectedObjectPool, queue_size=10)
 
-        # 订阅三个话题，用于获得rgb图像、深度图、相机内参 注意这里的话题名字是在urdf中自己定义的
+        # 订阅三个话题,用于获得rgb图像、深度图、相机内参 注意这里的话题名字是在urdf中自己定义的
         rospy.Subscriber('/camera/color/image_raw', Image, self._rgb_callback)
         rospy.Subscriber('/camera/depth/image_rect_raw', Image, self._depth_callback)
         rospy.Subscriber('/camera/color/camera_info', CameraInfo, self._camera_info_callback)
@@ -130,7 +130,7 @@ class VisionNode:
             rospy.logwarn(f"TF transform failed: {e}")
             return None
         
-    # 世界转图像上的坐标，但这里的转换并不完全，只是转了一下坐标轴，由于焦距参数单位问题，没办法单独得到图像坐标(mm)
+    # 世界转图像上的坐标,但这里的转换并不完全,只是转了一下坐标轴,由于焦距参数单位问题,没办法单独得到图像坐标(mm)
     def world_to_image_coordinate(self, x_world, y_world, z_world):
         ps = PointStamped()
         ps.header.stamp = rospy.Time(0)
@@ -148,7 +148,7 @@ class VisionNode:
             rospy.logwarn(f"TF transform failed: {e}")
             return None
         
-    # 直接从世界坐标到像素坐标，中间包含世界坐标转图像坐标的部分过程
+    # 直接从世界坐标到像素坐标,中间包含世界坐标转图像坐标的部分过程
     def world_to_pixel_coordinate(self, x_world, y_world, z_world):
         ps = PointStamped()
         ps.header.stamp = rospy.Time(0)
@@ -193,15 +193,15 @@ class VisionNode:
             rospy.logwarn(f"TF transform failed: {e}")
             return None
     def process_frame(self):
-        # 每次进入该函数时，会获取当前最新图像并处理
+        # 每次进入该函数时,会获取当前最新图像并处理
         with self.lock:
             if self.rgb_image is None or self.depth_image is None:
                 return
-            # 采用拷贝，避免在处理过程中图像被修改
+            # 采用拷贝,避免在处理过程中图像被修改
             rgb = self.rgb_image.copy()
             depth = self.depth_image.copy()
 
-        # 如果提供了测试图片路径，则优先使用文件中的图像（便于离线调试）
+        # 如果提供了测试图片路径,则优先使用文件中的图像（便于离线调试）
         if self.test_rgb_path not in (None, '', 'none', 'None'):
             test_rgb = cv2.imread(self.test_rgb_path, cv2.IMREAD_COLOR)
             if test_rgb is None:
@@ -218,7 +218,7 @@ class VisionNode:
             rospy.loginfo_throttle(5.0, f"Using test depth image from: {self.test_depth_path}")
             depth = test_depth
         
-        #urdf，camera_fixed_joint的旋转导致图像需要旋转180度
+        #urdf,camera_fixed_joint的旋转导致图像需要旋转180度
         rgb = cv2.rotate(rgb, cv2.ROTATE_180)
         depth = cv2.rotate(depth, cv2.ROTATE_180)
         
@@ -250,7 +250,7 @@ class VisionNode:
             else:
                 rgb = rgb.astype(np.uint8)
         
-        if len(rgb.shape) == 2:  # 如果是灰度图，转为 BGR
+        if len(rgb.shape) == 2:  # 如果是灰度图,转为 BGR
             rgb = cv2.cvtColor(rgb, cv2.COLOR_GRAY2BGR)
         elif rgb.shape[2] == 4:  # RGBA 转 BGR
             rgb = cv2.cvtColor(rgb, cv2.COLOR_RGBA2BGR)
@@ -265,10 +265,10 @@ class VisionNode:
             traceback.print_exc()
             return
 
-        # Ultrayltics 的result对象自动带boxes这个属性 这个属性是监测框，内含xyxy,conf,cls
+        # Ultrayltics 的result对象自动带boxes这个属性 这个属性是监测框,内含xyxy,conf,cls
         if result is None or result.boxes is None or len(result.boxes) == 0:
             rospy.loginfo_throttle(5.0, "No detections")
-            # 即使没有检测到物体，也显示图像
+            # 即使没有检测到物体,也显示图像
             cv2.imshow('RGB Image', rgb)
             cv2.waitKey(1)
             return
@@ -306,7 +306,7 @@ class VisionNode:
             if point is None:
                 continue
 
-            # 创建自定义消息，包含位姿、类别ID和置信度
+            # 创建自定义消息,包含位姿、类别ID和置信度
             detected_obj = DetectedObject()
             detected_obj.pose = PoseStamped()
             if self.depth_header:
@@ -319,7 +319,7 @@ class VisionNode:
             detected_obj.class_id = int(cls_id)
             detected_obj.confidence = float(score)
             # self.detected_objects_pub.publish(detected_obj)
-            detections.append((box, score, cls_id)) # 用于可视化，保存完整的检测信息
+            detections.append((box, score, cls_id)) # 用于可视化,保存完整的检测信息
             detected_objects.append(detected_obj)
 
         if detected_objects:

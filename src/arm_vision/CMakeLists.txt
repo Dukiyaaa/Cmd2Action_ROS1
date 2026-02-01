@@ -30,7 +30,7 @@ catkin_package(
   CATKIN_DEPENDS message_runtime
 )
 
-# Python 脚本不需要编译，但需要设置权限
+# Python 脚本不需要编译,但需要设置权限
 catkin_install_python(
   PROGRAMS 
   src/my_vision.py 
