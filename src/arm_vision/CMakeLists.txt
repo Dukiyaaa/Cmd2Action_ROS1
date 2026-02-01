@@ -39,5 +39,6 @@ catkin_install_python(
   src/coordinate_transformer.py 
   src/visualizer.py 
   src/vision_node.py
+  src/gripper_vision.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )

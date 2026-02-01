@@ -43,13 +43,13 @@
             <parent link="gripper_camera_link"/>
             <child link="gripper_camera_color_optical_frame"/>
             <!-- Rotate so optical frame aligns with REP-103 when camera_link x:forward, y:right, z:down -->
-            <origin xyz="0 0 0" rpy="0.0 0.0 0.0"/>
+            <origin xyz="0 0 0" rpy="1.5708 0 1.5708"/>
         </joint>
         
         <joint name="gripper_camera_depth_optical_joint" type="fixed">
             <parent link="gripper_camera_link"/>
             <child link="gripper_camera_depth_optical_frame"/>
-            <origin xyz="0 0 0" rpy="0.0 0 0.0"/>
+            <origin xyz="0 0 0" rpy="1.5708 0 1.5708"/>
         </joint>
         
         <!-- Gazebo 插件配置：模拟 RealSense D435i -->
