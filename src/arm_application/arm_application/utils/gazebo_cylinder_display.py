@@ -159,7 +159,7 @@ class CylinderSpawner:
             rospy.logerr('生成圆柱体失败: %s' % e)
             return False
 
-    def display_test_cylinder(self, cyl_pos, radius=0.015, length=0.032,
+    def display_test_cylinder(self, cyl_pos, radius=0.016, length=0.032,
                               cyl_color=(0.2, 0.8, 0.2, 1.0),
                               cyl_mass=0.01,
                               cyl_name='test_cylinder'):
