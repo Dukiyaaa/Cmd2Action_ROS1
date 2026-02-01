@@ -125,7 +125,8 @@ class ScaraController(AbstractController):
             gripper_roll = self.current_joint_state.position[gripper_roll_idx]
             
             # 计算 gripper_roll_link 的世界 yaw 角
-            world_yaw = rotation1 + rotation2 + gripper_roll
+            # world_yaw = rotation1 + rotation2 + gripper_roll
+            world_yaw = rotation1 + rotation2
             
             return world_yaw
         except ValueError:
@@ -140,6 +141,7 @@ class ScaraController(AbstractController):
         对齐夹爪朝向：获取当前 yaw 角，然后旋转夹爪使其回到初始朝向(相对于世界坐标系为 0)
         """
         yaw = self._get_gripper_roll_yaw()
+        rospy.loginfo(f"当前 gripper_roll yaw 角: {yaw:.3f} rad ({np.degrees(yaw):.1f} 度)")
         if yaw is not None:
             self.gripper_roll_pub.publish(Float64(-yaw))
             rospy.loginfo("旋转夹爪以对齐初始朝向")

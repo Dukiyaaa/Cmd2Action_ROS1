@@ -76,6 +76,7 @@ class TaskPlanner:
         above = z + DIV
         return [
             ("move_to", x, y, SAFE_HEIGHT),
+            ("align_gripper_roll",),
             ("move_to", x, y, above),
             ("open_gripper",),
             ("move_to", x, y, SAFE_HEIGHT)
