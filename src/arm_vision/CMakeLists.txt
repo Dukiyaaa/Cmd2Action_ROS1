@@ -40,5 +40,6 @@ catkin_install_python(
   src/visualizer.py 
   src/vision_node.py
   src/gripper_vision.py
+  src/vision_loss.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
