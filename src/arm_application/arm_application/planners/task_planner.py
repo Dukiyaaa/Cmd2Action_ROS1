@@ -50,14 +50,12 @@ class TaskPlanner:
         """
         SAFE_HEIGHT = 0.5   #夹爪初始高度
         DIV = 0.188         # 夹爪合适的下降位置 原先假设目标z为0.05，现在为0.016
-        DIV = 0.188 + 0.05 - 0.016
 
         x, y, z = pose
-        above = z + DIV
         return [
             ("move_to", x, y, SAFE_HEIGHT),
             ("align_gripper_roll",),
-            ("move_to", x, y, above),
+            ("gripper_down", x, y),
             ("close_gripper",),
             ("move_to", x, y, SAFE_HEIGHT)
         ]

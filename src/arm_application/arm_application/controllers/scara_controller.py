@@ -5,6 +5,7 @@ from sensor_msgs.msg import JointState
 from controllers.abstract_controller import AbstractController
 from utils.my_kinematics import inverse_kinematics 
 import numpy as np
+from std_msgs.msg import Float32
 
 class ScaraController(AbstractController):
     def __init__(self):
@@ -54,6 +55,8 @@ class ScaraController(AbstractController):
         # 当前关节状态
         self.current_joint_state = None
         rospy.Subscriber('/joint_states', JointState, self._joint_state_callback)
+        self.object_height = 0.0
+        rospy.Subscriber('/objects_height', Float32, self._object_height_callback)
         # 等待话题建立连接
         rospy.sleep(1.0)
 
@@ -150,3 +153,17 @@ class ScaraController(AbstractController):
             rospy.sleep(duration)
         else:
             rospy.loginfo("无法获取 gripper_roll yaw 角")
+
+    def _object_height_callback(self, msg):
+        self.object_height = msg.data
+
+    def gripper_down(self, x: float, y: float, duration: float = 1.0) -> None:
+        """
+        夹爪自适应下降
+        """
+        rospy.loginfo(f'height:{self.object_height}')
+        DIV = 0.206 # 安全间距,即对于不同高度的物体，夹爪应该降落到这个above进行夹取
+        above = self.object_height + DIV
+        rospy.loginfo(f'above:{above}')
+        self.move_to(x, y, above)
+

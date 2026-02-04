@@ -170,5 +170,7 @@ class Agent:
                 self.controller.reset()
             elif method_name == "align_gripper_roll":
                 self.controller.align_gripper_roll()
+            elif method_name == "gripper_down":
+                self.controller.gripper_down(*args)
             else:
                 rospy.logwarn(f"Unknown action: {method_name}")

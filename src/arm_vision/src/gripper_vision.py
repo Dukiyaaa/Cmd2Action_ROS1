@@ -14,6 +14,7 @@ import threading
 from cv_bridge import CvBridge
 from sensor_msgs.msg import Image, CameraInfo
 from coordinate_transformer import CoordinateTransformer
+from std_msgs.msg import Float32
 
 class GripperVision:
     def __init__(self):
@@ -26,6 +27,8 @@ class GripperVision:
         self.rgb_image = None
         self.depth_image = None
         self.depth_header = None
+
+        self.objects_height_pub = rospy.Publisher('/objects_height', Float32, queue_size=10)
 
         rospy.Subscriber('/gripper_camera/color/image_raw', Image, self._rgb_callback)
         rospy.Subscriber('/gripper_camera/depth/image_rect_raw', Image, self._depth_callback)
@@ -101,6 +104,7 @@ class GripperVision:
         else:
             rospy.logwarn(f"Failed to get depth value at ({u_int},{v_int})") 
         
+        self.objects_height_pub.publish(Float32(object_height)) 
         # 可视化
         cv2.imshow('Gripper RGB Image', rgb)
         cv2.imshow('Gripper Depth Image', depth)
