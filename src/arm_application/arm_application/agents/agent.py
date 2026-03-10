@@ -25,6 +25,9 @@ from config import (
     ACTION_CLOSE_GRIPPER,
     ACTION_CREATE,
     ACTION_DELETE,
+    ACTION_MOVE_TO,
+    ACTION_ALIGN_GRIPPER_ROLL,
+    ACTION_GRIPPER_DOWN,
     EMPTY_POSE,
     INVALID_CLASS_ID,
     OBJECT_CLASS_BOX,
@@ -64,7 +67,7 @@ class Agent:
             task_spec = {
                 "action": msg.action_type,
                 "object": obj_pose,
-                "target": (-1,-1,-1)
+                "target": EMPTY_POSE
             }
             action_sequence = self.task_planner.plan(task_spec)
             rospy.loginfo(f'{action_sequence}')
@@ -90,7 +93,7 @@ class Agent:
             # 调用 Planner 获取动作序列 
             task_spec = {
                 "action": msg.action_type,
-                "object": (-1,-1,-1),
+                "object": EMPTY_POSE,
                 "target": target_pose
             }
             action_sequence = self.task_planner.plan(task_spec)
@@ -104,7 +107,7 @@ class Agent:
                 obj_pose = (msg.object_x, msg.object_y, msg.object_z)
                 rospy.loginfo(f"使用显式抓取坐标: {obj_pose}")
             # 2. 否则用 class_id 查询视觉（如“抓取红色方块”）
-            elif msg.object_class_id != -1:
+            elif msg.object_class_id != INVALID_CLASS_ID:
                 obj_pose = self.object_detector.get_position(msg.object_class_id)
                 if obj_pose is None:
                     rospy.logerr(f"视觉未检测到 object_class_id={msg.object_class_id} 的物体！")
@@ -119,7 +122,7 @@ class Agent:
                 target_pose = (msg.target_x, msg.target_y, msg.target_z)
                 rospy.loginfo(f"使用显式放置坐标: {target_pose}")
             # 2. 否则用 class_id 查询视觉（如“放到蓝色托盘上”）
-            elif msg.target_class_id != -1:
+            elif msg.target_class_id != INVALID_CLASS_ID:
                 target_pose = self.object_detector.get_position(msg.target_class_id)
                 if target_pose is None:
                     rospy.logerr(f"视觉未检测到 target_class_id={msg.target_class_id} 的放置目标！")
@@ -160,7 +163,7 @@ class Agent:
                     box_pos=(box_x, box_y, box_z),
                     box_name=box_name
                 )
-            elif msg.object_class_id == OBJECT_CLASS_BOX:
+            elif msg.object_class_id == OBJECT_CLASS_CYLINDER:
                 cyl_x, cyl_y, cyl_z = msg.object_x,msg.object_y,msg.object_z
                 cyl_name = msg.object_name
                 self.cyl_spawner.display_test_cylinder(
@@ -175,7 +178,7 @@ class Agent:
         for action in seq:
             method_name = action[0]
             args = action[1:]
-            if method_name == "move_to":
+            if method_name == ACTION_MOVE_TO:
                 self.controller.move_to(*args)
             elif method_name == ACTION_OPEN_GRIPPER:
                 self.controller.open_gripper()
@@ -183,9 +186,9 @@ class Agent:
                 self.controller.close_gripper()
             elif method_name == ACTION_RESET:
                 self.controller.reset()
-            elif method_name == "align_gripper_roll":
+            elif method_name == ACTION_ALIGN_GRIPPER_ROLL:
                 self.controller.align_gripper_roll()
-            elif method_name == "gripper_down":
+            elif method_name == ACTION_GRIPPER_DOWN:
                 self.controller.gripper_down(*args)
             else:
                 rospy.logwarn(f"Unknown action: {method_name}")

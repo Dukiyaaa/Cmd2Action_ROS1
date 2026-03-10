@@ -31,6 +31,7 @@ PLACE_APPROACH_OFFSET = 0.23 + 0.05 - 0.016
 
 # agent参数标准化
 # ===== Agent Actions =====
+ACTION_MOVE_TO = "move_to"
 ACTION_PICK = "pick"
 ACTION_PLACE = "place"
 ACTION_PICK_PLACE = "pick_place"
@@ -39,6 +40,8 @@ ACTION_OPEN_GRIPPER = "open_gripper"
 ACTION_CLOSE_GRIPPER = "close_gripper"
 ACTION_CREATE = "create"
 ACTION_DELETE = "delete"
+ACTION_ALIGN_GRIPPER_ROLL = "align_gripper_roll"
+ACTION_GRIPPER_DOWN = "gripper_down"
 
 # ===== Agent Defaults =====
 EMPTY_POSE = (-1.0, -1.0, -1.0)

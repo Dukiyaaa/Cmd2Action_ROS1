@@ -113,8 +113,8 @@ class GripperVision:
         
         self.objects_height_pub.publish(Float32(object_height)) 
         # 可视化
-        cv2.imshow('Gripper RGB Image', rgb)
-        cv2.imshow('Gripper Depth Image', depth)
+        # cv2.imshow('Gripper RGB Image', rgb)
+        # cv2.imshow('Gripper Depth Image', depth)
         cv2.waitKey(1)
 
     def run(self):
