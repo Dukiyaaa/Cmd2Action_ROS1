@@ -1,3 +1,5 @@
+# Cmd2Action/src/arm_application/arm_application/config.py
+
 # scara_controller参数标准化
 # ===== Controller Timing =====
 CONTROLLER_INIT_WAIT = 1.0
