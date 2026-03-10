@@ -16,6 +16,13 @@ from sensor_msgs.msg import Image, CameraInfo
 from coordinate_transformer import CoordinateTransformer
 from std_msgs.msg import Float32
 
+from config import (
+    GRIPPER_CENTER_U,
+    GRIPPER_CENTER_V,
+    GRIPPER_CAMERA_HEIGHT,
+    VISION_RATE,
+)
+
 class GripperVision:
     def __init__(self):
         rospy.init_node('gripper_vision_node', anonymous=True)
@@ -90,12 +97,12 @@ class GripperVision:
         depth = cv2.rotate(depth, cv2.ROTATE_180)
         
         # 将浮点数坐标转换为整数
-        u = 424.5
-        v = 240.5
+        u = GRIPPER_CENTER_U
+        v = GRIPPER_CENTER_V
         u_int = int(round(u))
         v_int = int(round(v))
         depth_value = self.get_object_depth(u_int, v_int)
-        gripper_camera_height = 0.2954  # 反向计算出来
+        gripper_camera_height = GRIPPER_CAMERA_HEIGHT  # 反向计算出来
         object_height = gripper_camera_height - depth_value
         # pose_z = object_height / 2
         if depth_value is not None:
@@ -111,7 +118,7 @@ class GripperVision:
         cv2.waitKey(1)
 
     def run(self):
-        rate = rospy.Rate(10)
+        rate = rospy.Rate(VISION_RATE)
         while not rospy.is_shutdown():
             self.process_frame()
             rate.sleep()

@@ -21,6 +21,17 @@ import threading
 from cv_bridge import CvBridge
 import numpy as np
 
+from config import (
+    GLOBAL_FIXED_DEPTH,
+    VISION_CONF_THRESHOLD,
+    VISION_DEVICE,
+    WORLD_CORRECTION_KX,
+    WORLD_CORRECTION_BX,
+    WORLD_CORRECTION_KY,
+    WORLD_CORRECTION_BY,
+    VISION_RATE,
+)
+
 class VisionNode:
     def __init__(self):
         rospy.init_node('vision_node', anonymous=True)
@@ -32,8 +43,8 @@ class VisionNode:
         # 模型加载
         self.detector = YOLODetector(
             model_path=rospy.get_param('~model_path'),
-            conf_thres=rospy.get_param('~conf', 0.45),
-            device=rospy.get_param('~device', 'auto')
+            conf_thres=rospy.get_param('~conf', VISION_CONF_THRESHOLD),
+            device=rospy.get_param('~device', VISION_DEVICE)
         )
         # 坐标转换
         self.transformer = CoordinateTransformer()
@@ -90,11 +101,9 @@ class VisionNode:
             rospy.loginfo(f'Camera calibrated: fx={self.fx}, fy={self.fy}, cx={self.cx}, cy={self.cy}')
 
     # 坐标线性回归优化器
-    def correct_detection_value(self,detected_x, detected_y, k_x=1.025837, b_x=-0.009908, k_y=1.025445, b_y=0.001953):
-        # x
-        corrected_x = detected_x * k_x + b_x
-        # y
-        corrected_y = detected_y * k_y + b_y
+    def correct_detection_value(self, detected_x, detected_y):
+        corrected_x = detected_x * WORLD_CORRECTION_KX + WORLD_CORRECTION_BX
+        corrected_y = detected_y * WORLD_CORRECTION_KY + WORLD_CORRECTION_BY
         return corrected_x, corrected_y
 
     def process_frame(self):
@@ -133,8 +142,8 @@ class VisionNode:
         # 转换到世界坐标
         detected_objects = []
         for _, score, cls_id, u, v in detections:
-            depth_value = depth[v, u] if u < depth.shape[1] and v < depth.shape[0] else 1.25
-            depth_value = 1.25
+            depth_value = depth[v, u] if u < depth.shape[1] and v < depth.shape[0] else GLOBAL_FIXED_DEPTH
+            depth_value = GLOBAL_FIXED_DEPTH
             # 原先为0.05,现在为0.016
             # depth_value = 1.25 + 0.05 - 0.016
             # rospy.loginfo(f'depth_value = {depth_value}')
@@ -174,7 +183,7 @@ class VisionNode:
         cv2.waitKey(1)
 
     def run(self):
-        rate = rospy.Rate(10)
+        rate = rospy.Rate(VISION_RATE)
         while not rospy.is_shutdown():
             self.process_frame()
             rate.sleep()
