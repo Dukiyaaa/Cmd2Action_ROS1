@@ -7,6 +7,24 @@ from utils.my_kinematics import inverse_kinematics
 import numpy as np
 from std_msgs.msg import Float32
 
+from config import (
+    CONTROLLER_INIT_WAIT,
+    JOINT_MOVE_DURATION,
+    MOVE_TO_DURATION,
+    OPEN_GRIPPER_DURATION,
+    CLOSE_GRIPPER_DURATION,
+    ALIGN_GRIPPER_DURATION,
+    RESET_DURATION,
+    GRIPPER_DOWN_DURATION,
+    GRIPPER_OPEN_POS,
+    GRIPPER_CLOSE_POS,
+    RESET_THETA1,
+    RESET_THETA2,
+    RESET_D3,
+    RESET_GRIPPER_ROLL,
+    GRIPPER_DOWN_SAFE_OFFSET,
+)
+
 class ScaraController(AbstractController):
     def __init__(self):
         # 创建各关节位置控制发布器
@@ -58,20 +76,20 @@ class ScaraController(AbstractController):
         self.object_height = 0.0
         rospy.Subscriber('/objects_height', Float32, self._object_height_callback)
         # 等待话题建立连接
-        rospy.sleep(1.0)
+        rospy.sleep(CONTROLLER_INIT_WAIT)
 
     def _joint_state_callback(self, msg):
         """关节状态回调函数"""
         self.current_joint_state = msg
 
-    def _move_joints(self, theta1, theta2, d3, duration=1.5):
+    def _move_joints(self, theta1, theta2, d3, duration=JOINT_MOVE_DURATION):
         """内部方法：直接控制关节"""
         self.rotation1_pub.publish(Float64(theta1))
         self.rotation2_pub.publish(Float64(theta2))
         self.gripper_pub.publish(Float64(d3))
         rospy.sleep(duration)
 
-    def move_to(self, x: float, y: float, z: float, duration: float = 3.0) -> bool:
+    def move_to(self, x: float, y: float, z: float, duration: float = MOVE_TO_DURATION) -> bool:
         """
         实现原子动作:移动到世界坐标,但目前并未考虑从任意坐标的移动
         """  
@@ -85,25 +103,27 @@ class ScaraController(AbstractController):
     
         return True
 
-    def open_gripper(self, duration: float = 0.5) -> None:
+    def open_gripper(self, duration: float = OPEN_GRIPPER_DURATION) -> None:
         rospy.loginfo("open gripper")
-        self.finger1_pub.publish(Float64(-0.02))
-        self.finger2_pub.publish(Float64(0.02))
-        self.finger3_pub.publish(Float64(0.02))
-        self.finger4_pub.publish(Float64(-0.02))
+        f1, f2, f3, f4 = GRIPPER_OPEN_POS
+        self.finger1_pub.publish(Float64(f1))
+        self.finger2_pub.publish(Float64(f2))
+        self.finger3_pub.publish(Float64(f3))
+        self.finger4_pub.publish(Float64(f4))
         rospy.sleep(duration)
 
-    def close_gripper(self, duration: float = 1.0) -> None:
+    def close_gripper(self, duration: float = CLOSE_GRIPPER_DURATION) -> None:
         rospy.loginfo("close gripper")
-        self.finger1_pub.publish(Float64(0.02))
-        self.finger2_pub.publish(Float64(-0.02))
-        self.finger3_pub.publish(Float64(-0.02))
-        self.finger4_pub.publish(Float64(0.02))
+        f1, f2, f3, f4 = GRIPPER_CLOSE_POS
+        self.finger1_pub.publish(Float64(f1))
+        self.finger2_pub.publish(Float64(f2))
+        self.finger3_pub.publish(Float64(f3))
+        self.finger4_pub.publish(Float64(f4))
         rospy.sleep(duration)
 
-    def reset(self, duration: float = 3.0) -> None:
-        self._move_joints(0.0, 0.0, 0.0, duration)
-        self.gripper_roll_pub.publish(Float64(0.0))
+    def reset(self, duration: float = RESET_DURATION) -> None:
+        self._move_joints(RESET_THETA1, RESET_THETA2, RESET_D3, duration)
+        self.gripper_roll_pub.publish(Float64(RESET_GRIPPER_ROLL))
         self.open_gripper()
 
     def _get_gripper_roll_yaw(self):
@@ -140,7 +160,7 @@ class ScaraController(AbstractController):
             rospy.logwarn("关节状态数据不完整")
             return None
 
-    def align_gripper_roll(self, duration: float = 1.0) -> None:
+    def align_gripper_roll(self, duration: float = ALIGN_GRIPPER_DURATION) -> None:
         """
         对齐夹爪朝向：获取当前 yaw 角,然后旋转夹爪使其回到初始朝向(相对于世界坐标系为 0)
 
@@ -157,13 +177,12 @@ class ScaraController(AbstractController):
     def _object_height_callback(self, msg):
         self.object_height = msg.data
 
-    def gripper_down(self, x: float, y: float, duration: float = 1.0) -> None:
+    def gripper_down(self, x: float, y: float, duration: float = GRIPPER_DOWN_DURATION) -> None:
         """
         夹爪自适应下降
         """
         rospy.loginfo(f'height:{self.object_height}')
-        DIV = 0.206 # 安全间距,即对于不同高度的物体，夹爪应该降落到这个above进行夹取
-        above = self.object_height + DIV
+        above = self.object_height + GRIPPER_DOWN_SAFE_OFFSET
         rospy.loginfo(f'above:{above}')
         self.move_to(x, y, above)
 
