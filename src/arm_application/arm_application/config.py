@@ -29,7 +29,7 @@ GRIPPER_DOWN_SAFE_OFFSET = 0.206
 # ===== Planner Heights =====
 PLANNER_SAFE_HEIGHT = 0.5
 PICK_APPROACH_OFFSET = 0.188
-PLACE_APPROACH_OFFSET = 0.23 + 0.05 - 0.016
+PLACE_APPROACH_OFFSET = 0.20 + 0.05 - 0.016
 
 # agent参数标准化
 # ===== Agent Actions =====
