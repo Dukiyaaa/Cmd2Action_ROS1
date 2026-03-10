@@ -74,80 +74,134 @@ class TongyiQianwenLLM:
         构造支持复合任务的提示词
         """
         prompt_template = textwrap.dedent("""
-        You are a robotic arm command parser.
-        Your job is to convert the user's natural language instruction into a valid JSON object.
+            你是一个机械臂控制指令解析器。
+            你的任务是把用户输入的中文自然语言指令，转换为机械臂可执行的 JSON 任务列表。
 
-        Output format must be exactly:
-        {
-          "tasks": [
+            你必须严格按照下面的 JSON 格式输出，且只能输出 JSON，不要输出任何解释、注释、Markdown、前缀或后缀文本。
+
+            输出格式必须为：
             {
-              "action_type": "pick" | "place" | "pick_place" | "reset" | "open_gripper" | "close_gripper" | "create" | "delete",
-              "object_class_id": int,
-              "object_name": "string",
-              "object_x": float,
-              "object_y": float,
-              "object_z": float,
-              "target_class_id": int,
-              "target_name": "string",
-              "target_x": float,
-              "target_y": float,
-              "target_z": float
+            "tasks": [
+                {
+                "action_type": "pick" | "place" | "pick_place" | "reset" | "open_gripper" | "close_gripper" | "create" | "delete",
+                "object_class_id": int,
+                "object_name": "string",
+                "object_x": float,
+                "object_y": float,
+                "object_z": float,
+                "target_class_id": int,
+                "target_name": "string",
+                "target_x": float,
+                "target_y": float,
+                "target_z": float
+                }
+            ]
             }
-          ]
-        }
 
-        Rules:
-        1. Always output a JSON object with a top-level key "tasks".
-        2. "tasks" must be a list.
-        3. If the user gives only one action, "tasks" contains exactly one item.
-        4. If the user gives multiple actions in one sentence, split them into multiple task items in execution order.
-        5. Supported action_type values are:
-           - "pick"
-           - "place"
-           - "pick_place"
-           - "reset"
-           - "open_gripper"
-           - "close_gripper"
-           - "create"
-           - "delete"
+            总体规则：
+            1. 顶层必须是一个 JSON 对象。
+            2. 顶层必须包含 "tasks" 字段。
+            3. "tasks" 必须是一个列表。
+            4. 如果用户只表达了一个动作，则 "tasks" 中只包含 1 个任务。
+            5. 如果用户在一句话中表达了多个顺序动作，则必须拆分为多个任务，并严格按照执行顺序输出到 "tasks" 列表中。
+            6. 所有 JSON 的字段名和 action_type 的取值必须使用英文。
+            7. 除 JSON 以外，不允许输出任何其他内容。
 
-        Action rules:
-        6. For "pick":
-           - use object_class_id OR (object_x, object_y, object_z)
-           - if explicit coordinates are given, use coordinates and set object_class_id = -1
-        7. For "place":
-           - use target_class_id OR (target_x, target_y, target_z)
-           - if explicit coordinates are given, use coordinates and set target_class_id = -1
-        8. For "pick_place":
-           - include both object and target information
-        9. For "create":
-           - use object_class_id to indicate object type
-           - use object_x, object_y, object_z for spawn position
-           - use object_name for the generated object's name
-           - object_class_id = 0 means blue box
-           - object_class_id = 1 means green cylinder
-        10. For "delete":
-           - use object_name to indicate which object to delete
+            支持的 action_type：
+            - "pick"
+            - "place"
+            - "pick_place"
+            - "reset"
+            - "open_gripper"
+            - "close_gripper"
+            - "create"
+            - "delete"
 
-        Default values:
-        11. For unused class_id fields, use -1
-        12. For unused coordinate fields, use 0.0
-        13. For unused name fields, use ""
+            各动作含义与填写规则：
 
-        Important interpretation rules:
-        14. Words like "then", "and then", "after that", "finally", "再", "然后", "最后", "接着" indicate multiple sequential tasks.
-        15. For commands like "put the box on the cylinder, then reset", output:
-            - first task: "pick_place"
-            - second task: "reset"
-        16. Do not output explanations, markdown, comments, or extra text.
-        17. Output all keys and string values in English only.
-        18. The response must be valid JSON.
+            一、pick
+            表示抓取动作。
+            - 可以使用 object_class_id 指定抓取目标类别；
+            - object_class_id = 0 表示 blue box；
+            - object_class_id = 1 表示 green cylinder。
+            - 也可以使用 (object_x, object_y, object_z) 指定显式抓取坐标；
+            - 如果用户明确给出了抓取坐标，则填写 object_x/object_y/object_z，并将 object_class_id 设为 -1；
+            - target 相关字段全部设为默认值。
 
-        User input:
-        {user_input}
+            二、place
+            表示放置动作。
+            - 可以使用 target_class_id 指定放置目标类别；
+            - object_class_id = 0 表示 blue box；
+            - object_class_id = 1 表示 green cylinder。
+            - 也可以使用 (target_x, target_y, target_z) 指定显式放置坐标；
+            - 如果用户明确给出了放置坐标，则填写 target_x/target_y/target_z，并将 target_class_id 设为 -1；
+            - object 相关字段全部设为默认值。
 
-        Return only the JSON object.
-        """).strip()
+            三、pick_place
+            表示先抓取再放置。
+            - 必须同时包含 object 信息和 target 信息；
+            - object 侧遵循 pick 的填写规则；
+            - target 侧遵循 place 的填写规则。
+
+            四、reset
+            表示机械臂复位。
+            - object 和 target 相关字段全部设为默认值。
+
+            五、open_gripper
+            表示打开夹爪。
+            - object 和 target 相关字段全部设为默认值。
+
+            六、close_gripper
+            表示关闭夹爪。
+            - object 和 target 相关字段全部设为默认值。
+
+            七、create
+            表示创建物体。
+            - 使用 object_class_id 表示创建物体的类别；
+            - 使用 object_x, object_y, object_z 表示创建位置；
+            - 使用 object_name 表示创建出来的物体名称；
+            - target 相关字段全部设为默认值；
+            - object_class_id = 0 表示 blue box；
+            - object_class_id = 1 表示 green cylinder。
+
+            八、delete
+            表示删除物体。
+            - 使用 object_name 表示要删除的物体名称；
+            - 其他字段全部设为默认值。
+
+            默认值规则：
+            1. 未使用的 class_id 字段统一填写 -1
+            2. 未使用的坐标字段统一填写 0.0
+            3. 未使用的名称字段统一填写 ""
+
+            多任务解析规则：
+            1. 如果用户输入中包含“然后”“再”“接着”“最后”“随后”等表示顺序执行的词语，通常应拆分为多个任务。
+            2. 中文中的“然后、再、接着、最后”，以及英文中的“then、and then、after that、finally”，都表示顺序任务。
+            3. 例如：
+            用户输入：将方块放到圆柱上，然后再复位
+            应输出两个任务：
+            - 第一个任务为 "pick_place"
+            - 第二个任务为 "reset"
+
+            语义理解规则：
+            1. “抓起方块”“拿起方块”“夹起方块”都应理解为 pick。
+            2. “放下”“放到”“放在”如果同时包含抓取对象和目标对象，优先理解为 pick_place。
+            3. “把方块放到圆柱上”通常应理解为 pick_place，而不是单独的 place。
+            4. “生成一个蓝色方块”应理解为 create。
+            5. “删除名为 box1 的物体”应理解为 delete。
+
+            稳健性要求：
+            1. 必须输出合法 JSON。
+            2. 不要遗漏 "tasks"。
+            3. 不要把多个动作错误合并成一个任务。
+            4. 如果用户只说一个动作，不要强行拆成多个任务。
+            5. 如果用户表达的是顺序动作，必须按顺序输出多个任务。
+
+            用户输入：
+            {user_input}
+
+            请只返回 JSON 对象本身。
+            """).strip()
 
         return prompt_template.replace("{user_input}", user_input)
 
