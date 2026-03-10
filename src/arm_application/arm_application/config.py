@@ -1,3 +1,4 @@
+# scara_controller参数标准化
 # ===== Controller Timing =====
 CONTROLLER_INIT_WAIT = 1.0
 JOINT_MOVE_DURATION = 1.5
@@ -21,3 +22,9 @@ RESET_GRIPPER_ROLL = 0.0
 # ===== Gripper Down =====
 # 夹爪下降安全间距
 GRIPPER_DOWN_SAFE_OFFSET = 0.206
+
+#task_planner参数标准化
+# ===== Planner Heights =====
+PLANNER_SAFE_HEIGHT = 0.5
+PICK_APPROACH_OFFSET = 0.188
+PLACE_APPROACH_OFFSET = 0.23 + 0.05 - 0.016

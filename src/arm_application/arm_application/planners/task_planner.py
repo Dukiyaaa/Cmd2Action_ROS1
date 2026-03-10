@@ -4,6 +4,12 @@
 """
 from typing import List, Tuple, Any
 
+from config import (
+    PLANNER_SAFE_HEIGHT,
+    PICK_APPROACH_OFFSET,
+    PLACE_APPROACH_OFFSET,
+)
+
 class TaskPlanner:
     def plan(self, task: dict) -> List[Tuple[str, ...]]:
         """
@@ -48,8 +54,8 @@ class TaskPlanner:
         4.闭合夹爪
         5.抬起夹爪
         """
-        SAFE_HEIGHT = 0.5   #夹爪初始高度
-        DIV = 0.188         # 夹爪合适的下降位置 原先假设目标z为0.05，现在为0.016
+        SAFE_HEIGHT = PLANNER_SAFE_HEIGHT   #夹爪初始高度
+        DIV = PICK_APPROACH_OFFSET        # 夹爪合适的下降位置 原先假设目标z为0.05，现在为0.016
 
         x, y, z = pose
         return [
@@ -68,19 +74,18 @@ class TaskPlanner:
         3.打开夹爪
         4.抬起夹爪
         """
-        SAFE_HEIGHT = 0.5   #夹爪初始高度
-        DIV = 0.23          # 夹爪合适的下降位置
-        DIV = 0.23 + 0.05 - 0.016
-
+        # SAFE_HEIGHT = 0.5   #夹爪初始高度
+        # DIV = 0.23          # 夹爪合适的下降位置
+        # DIV = 0.23 + 0.05 - 0.016
 
         x, y, z = pose
-        above = z + DIV
+        above = z + PLACE_APPROACH_OFFSET
         return [
-            ("move_to", x, y, SAFE_HEIGHT),
+            ("move_to", x, y, PLANNER_SAFE_HEIGHT),
             # ("align_gripper_roll",),
             ("move_to", x, y, above),
             ("open_gripper",),
-            ("move_to", x, y, SAFE_HEIGHT)
+            ("move_to", x, y, PLANNER_SAFE_HEIGHT)
         ]
 
     def _plan_reset(self):
