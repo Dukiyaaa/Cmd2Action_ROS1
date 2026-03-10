@@ -16,6 +16,21 @@ from utils.gazebo_box_display import BoxSpawner
 from utils.gazebo_cylinder_display import CylinderSpawner
 from typing import List, Tuple, Any
 
+from config import (
+    ACTION_PICK,
+    ACTION_PLACE,
+    ACTION_PICK_PLACE,
+    ACTION_RESET,
+    ACTION_OPEN_GRIPPER,
+    ACTION_CLOSE_GRIPPER,
+    ACTION_CREATE,
+    ACTION_DELETE,
+    EMPTY_POSE,
+    INVALID_CLASS_ID,
+    OBJECT_CLASS_BOX,
+    OBJECT_CLASS_CYLINDER,
+)
+
 class Agent:
     def __init__(self):
         # 初始化依赖模块
@@ -31,11 +46,11 @@ class Agent:
         rospy.loginfo("Agent 已启动,等待 LLM 指令...")
         
     def _llm_callback(self, msg):            
-        if msg.action_type == "pick":
+        if msg.action_type == ACTION_PICK:
             if msg.object_x != 0.0 or msg.object_y != 0.0 or msg.object_z != 0.0:
                 obj_pose = (msg.object_x, msg.object_y, msg.object_z)
                 rospy.loginfo(f"使用显式抓取坐标: {obj_pose}")
-            elif msg.object_class_id != -1:
+            elif msg.object_class_id != INVALID_CLASS_ID:
                 obj_pose = self.object_detector.get_position(msg.object_class_id)
                 if obj_pose is None:
                     rospy.logerr(f"视觉未检测到 object_class_id={msg.object_class_id} 的物体！")
@@ -56,13 +71,13 @@ class Agent:
 
             # 执行动作序列
             self._execute_action_sequence(action_sequence)
-        elif msg.action_type == "place":
+        elif msg.action_type == ACTION_PLACE:
             # 1. 优先使用显式坐标
             if msg.target_x != 0.0 or msg.target_y != 0.0 or msg.target_z != 0.0:
                 target_pose = (msg.target_x, msg.target_y, msg.target_z)
                 rospy.loginfo(f"使用显式放置坐标: {target_pose}")
             # 2. 否则用 class_id 查询视觉（如“放到蓝色托盘上”）
-            elif msg.target_class_id != -1:
+            elif msg.target_class_id != INVALID_CLASS_ID:
                 target_pose = self.object_detector.get_position(msg.target_class_id)
                 if target_pose is None:
                     rospy.logerr(f"视觉未检测到 target_class_id={msg.target_class_id} 的放置目标！")
@@ -83,7 +98,7 @@ class Agent:
 
             # 执行动作序列
             self._execute_action_sequence(action_sequence)
-        elif msg.action_type == "pick_place":
+        elif msg.action_type == ACTION_PICK_PLACE:
             # 1. 优先使用显式坐标
             if msg.object_x != 0.0 or msg.object_y != 0.0 or msg.object_z != 0.0:
                 obj_pose = (msg.object_x, msg.object_y, msg.object_z)
@@ -125,34 +140,34 @@ class Agent:
 
             # 执行动作序列
             self._execute_action_sequence(action_sequence)
-        elif msg.action_type == "reset" or msg.action_type == "open_gripper" or msg.action_type == "close_gripper":
+        elif msg.action_type == ACTION_RESET or msg.action_type == ACTION_OPEN_GRIPPER or msg.action_type == ACTION_CLOSE_GRIPPER:
             # 调用 Planner 获取动作序列 
             task_spec = {
                 "action": msg.action_type,
-                "object": (-1,-1,-1),
-                "target": (-1,-1,-1)
+                "object": EMPTY_POSE,
+                "target": EMPTY_POSE
             }
             action_sequence = self.task_planner.plan(task_spec)
             rospy.loginfo(f'{action_sequence}')
 
             # 执行动作序列
             self._execute_action_sequence(action_sequence)
-        elif msg.action_type == "create":
-            if msg.object_class_id == 0:
+        elif msg.action_type == ACTION_CREATE:
+            if msg.object_class_id == OBJECT_CLASS_BOX:
                 box_x, box_y, box_z = msg.object_x,msg.object_y,msg.object_z
                 box_name = msg.object_name
                 self.box_spawner.display_test_box(
                     box_pos=(box_x, box_y, box_z),
                     box_name=box_name
                 )
-            elif msg.object_class_id == 1:
+            elif msg.object_class_id == OBJECT_CLASS_BOX:
                 cyl_x, cyl_y, cyl_z = msg.object_x,msg.object_y,msg.object_z
                 cyl_name = msg.object_name
                 self.cyl_spawner.display_test_cylinder(
                     cyl_pos=(cyl_x, cyl_y, cyl_z),
                     cyl_name=cyl_name
                 )
-        elif msg.action_type == "delete":
+        elif msg.action_type == ACTION_DELETE:
             obj_name = msg.object_name
             self.box_spawner.delete_entity(obj_name)
 
@@ -162,11 +177,11 @@ class Agent:
             args = action[1:]
             if method_name == "move_to":
                 self.controller.move_to(*args)
-            elif method_name == "open_gripper":
+            elif method_name == ACTION_OPEN_GRIPPER:
                 self.controller.open_gripper()
-            elif method_name == "close_gripper":
+            elif method_name == ACTION_CLOSE_GRIPPER:
                 self.controller.close_gripper()
-            elif method_name == "reset":
+            elif method_name == ACTION_RESET:
                 self.controller.reset()
             elif method_name == "align_gripper_roll":
                 self.controller.align_gripper_roll()
