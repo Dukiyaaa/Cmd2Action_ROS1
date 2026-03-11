@@ -54,7 +54,7 @@ class Agent:
                 obj_pose = (msg.object_x, msg.object_y, msg.object_z)
                 rospy.loginfo(f"使用显式抓取坐标: {obj_pose}")
             elif msg.object_class_id != INVALID_CLASS_ID:
-                obj_pose = self.object_detector.get_position(msg.object_class_id)
+                obj_pose = self.object_detector.get_best_position(msg.object_class_id)
                 if obj_pose is None:
                     rospy.logerr(f"视觉未检测到 object_class_id={msg.object_class_id} 的物体！")
                     return
@@ -81,7 +81,7 @@ class Agent:
                 rospy.loginfo(f"使用显式放置坐标: {target_pose}")
             # 2. 否则用 class_id 查询视觉（如“放到蓝色托盘上”）
             elif msg.target_class_id != INVALID_CLASS_ID:
-                target_pose = self.object_detector.get_position(msg.target_class_id)
+                target_pose = self.object_detector.get_best_position(msg.target_class_id)
                 if target_pose is None:
                     rospy.logerr(f"视觉未检测到 target_class_id={msg.target_class_id} 的放置目标！")
                     return
@@ -108,7 +108,7 @@ class Agent:
                 rospy.loginfo(f"使用显式抓取坐标: {obj_pose}")
             # 2. 否则用 class_id 查询视觉（如“抓取红色方块”）
             elif msg.object_class_id != INVALID_CLASS_ID:
-                obj_pose = self.object_detector.get_position(msg.object_class_id)
+                obj_pose = self.object_detector.get_best_position(msg.object_class_id)
                 if obj_pose is None:
                     rospy.logerr(f"视觉未检测到 object_class_id={msg.object_class_id} 的物体！")
                     return
@@ -123,7 +123,7 @@ class Agent:
                 rospy.loginfo(f"使用显式放置坐标: {target_pose}")
             # 2. 否则用 class_id 查询视觉（如“放到蓝色托盘上”）
             elif msg.target_class_id != INVALID_CLASS_ID:
-                target_pose = self.object_detector.get_position(msg.target_class_id)
+                target_pose = self.object_detector.get_best_position(msg.target_class_id)
                 if target_pose is None:
                     rospy.logerr(f"视觉未检测到 target_class_id={msg.target_class_id} 的放置目标！")
                     return
