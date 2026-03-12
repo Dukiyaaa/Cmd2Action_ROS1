@@ -122,8 +122,10 @@ class TongyiQianwenLLM:
             一、pick
             表示抓取动作。
             - 可以使用 object_class_id 指定抓取目标类别；
-            - object_class_id = 0 表示 blue box；
-            - object_class_id = 1 表示 green cylinder。
+            - object_class_id = 0 表示 blue box;
+            - object_class_id = 1 表示 green cylinder;
+            - object_class_id = 2 表示 red box;
+            - object_class_id = 3 表示 yellow cylinder;
             - 也可以使用 (object_x, object_y, object_z) 指定显式抓取坐标；
             - 如果用户明确给出了抓取坐标，则填写 object_x/object_y/object_z，并将 object_class_id 设为 -1；
             - target 相关字段全部设为默认值。
@@ -131,8 +133,10 @@ class TongyiQianwenLLM:
             二、place
             表示放置动作。
             - 可以使用 target_class_id 指定放置目标类别；
-            - object_class_id = 0 表示 blue box；
-            - object_class_id = 1 表示 green cylinder。
+            - object_class_id = 0 表示 blue box;
+            - object_class_id = 1 表示 green cylinder;
+            - object_class_id = 2 表示 red box;
+            - object_class_id = 3 表示 yellow cylinder;                    
             - 也可以使用 (target_x, target_y, target_z) 指定显式放置坐标；
             - 如果用户明确给出了放置坐标，则填写 target_x/target_y/target_z，并将 target_class_id 设为 -1；
             - object 相关字段全部设为默认值。
@@ -161,8 +165,10 @@ class TongyiQianwenLLM:
             - 使用 object_x, object_y, object_z 表示创建位置；
             - 使用 object_name 表示创建出来的物体名称；
             - target 相关字段全部设为默认值；
-            - object_class_id = 0 表示 blue box；
-            - object_class_id = 1 表示 green cylinder。
+            - object_class_id = 0 表示 blue box;
+            - object_class_id = 1 表示 green cylinder;
+            - object_class_id = 2 表示 red box;
+            - object_class_id = 3 表示 yellow cylinder;
 
             八、delete
             表示删除物体。
@@ -178,7 +184,7 @@ class TongyiQianwenLLM:
             1. 如果用户输入中包含“然后”“再”“接着”“最后”“随后”等表示顺序执行的词语，通常应拆分为多个任务。
             2. 中文中的“然后、再、接着、最后”，以及英文中的“then、and then、after that、finally”，都表示顺序任务。
             3. 例如：
-            用户输入：将方块放到圆柱上，然后再复位
+            用户输入：将蓝色方块放到黄色圆柱上，然后再复位
             应输出两个任务：
             - 第一个任务为 "pick_place"
             - 第二个任务为 "reset"

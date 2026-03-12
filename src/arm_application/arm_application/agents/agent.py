@@ -30,8 +30,10 @@ from config import (
     ACTION_GRIPPER_DOWN,
     EMPTY_POSE,
     INVALID_CLASS_ID,
-    OBJECT_CLASS_BOX,
-    OBJECT_CLASS_CYLINDER,
+    OBJECT_CLASS_BLUE_BOX,
+    OBJECT_CLASS_GREEN_CYLINDER,
+    OBJECT_CLASS_RED_BOX,
+    OBJECT_CLASS_YELLOW_CYLINDER,
 )
 
 class Agent:
@@ -156,18 +158,36 @@ class Agent:
             # 执行动作序列
             self._execute_action_sequence(action_sequence)
         elif msg.action_type == ACTION_CREATE:
-            if msg.object_class_id == OBJECT_CLASS_BOX:
+            if msg.object_class_id == OBJECT_CLASS_BLUE_BOX:
                 box_x, box_y, box_z = msg.object_x,msg.object_y,msg.object_z
                 box_name = msg.object_name
                 self.box_spawner.display_test_box(
                     box_pos=(box_x, box_y, box_z),
+                    box_color=(0.2, 0.6, 0.9, 1.0),
                     box_name=box_name
                 )
-            elif msg.object_class_id == OBJECT_CLASS_CYLINDER:
+            elif msg.object_class_id == OBJECT_CLASS_GREEN_CYLINDER:
                 cyl_x, cyl_y, cyl_z = msg.object_x,msg.object_y,msg.object_z
                 cyl_name = msg.object_name
                 self.cyl_spawner.display_test_cylinder(
                     cyl_pos=(cyl_x, cyl_y, cyl_z),
+                    cyl_color=(0.2, 0.8, 0.2, 1.0),
+                    cyl_name=cyl_name
+                )
+            elif msg.object_class_id == OBJECT_CLASS_RED_BOX:
+                box_x, box_y, box_z = msg.object_x,msg.object_y,msg.object_z
+                box_name = msg.object_name
+                self.box_spawner.display_test_box(
+                    box_pos=(box_x, box_y, box_z),
+                    box_color=(0.9, 0.2, 0.2, 1.0),
+                    box_name=box_name
+                )
+            elif msg.object_class_id == OBJECT_CLASS_YELLOW_CYLINDER:
+                cyl_x, cyl_y, cyl_z = msg.object_x,msg.object_y,msg.object_z
+                cyl_name = msg.object_name
+                self.cyl_spawner.display_test_cylinder(
+                    cyl_pos=(cyl_x, cyl_y, cyl_z),
+                    cyl_color=(0.95, 0.85, 0.2, 1.0),
                     cyl_name=cyl_name
                 )
         elif msg.action_type == ACTION_DELETE:
