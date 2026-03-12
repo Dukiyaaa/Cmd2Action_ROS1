@@ -144,8 +144,6 @@ class VisionNode:
         for _, score, cls_id, u, v in detections:
             depth_value = depth[v, u] if u < depth.shape[1] and v < depth.shape[0] else GLOBAL_FIXED_DEPTH
             depth_value = GLOBAL_FIXED_DEPTH
-            # 原先为0.05,现在为0.016
-            # depth_value = 1.25 + 0.05 - 0.016
             # rospy.loginfo(f'depth_value = {depth_value}')
             point = self.transformer.pixel_to_world_coordinate(u, v, depth_value)
             if point is None:
@@ -178,7 +176,7 @@ class VisionNode:
 
         # 可视化
         rgb = self.visualizer.draw_detections(rgb, detections)
-        # cv2.imshow('RGB Image', rgb)
+        cv2.imshow('RGB Image', rgb)
         # cv2.imshow('Depth Image', depth)
         cv2.waitKey(1)
 

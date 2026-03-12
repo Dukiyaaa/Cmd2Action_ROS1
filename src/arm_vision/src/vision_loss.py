@@ -73,12 +73,14 @@ def main():
             rospy.sleep(0.5)
             
             # 获取检测结果
-            detect_pos = object_detector.get_position(0)
+            detect_pos = object_detector.get_best_position(0)
             
             # 计算有效检测的平均值
             if detect_pos:
-                # 计算误差（只使用校正后的Y值）
-                corrected_x, corrected_y = correct_detection_value(detect_pos[0], detect_pos[1])
+                # 计算误差 校正后
+                # corrected_x, corrected_y = correct_detection_value(detect_pos[0], detect_pos[1])
+                # 校正前
+                corrected_x, corrected_y = detect_pos[0], detect_pos[1]
                 opt_pos = (corrected_x, corrected_y, detect_pos[2])
                 loss = np.linalg.norm(np.array(pos) - np.array(opt_pos))
                 # 记录结果
