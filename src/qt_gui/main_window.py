@@ -328,7 +328,7 @@ class MainWindow(QMainWindow):
         count = self.target_list.count()
 
         # 每一项大约高度
-        row_h = 24
+        row_h = 50
         frame = 8
 
         # 至少显示 2 行，最多显示 10 行
