@@ -2,7 +2,8 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QGridLayout,
     QGroupBox, QLabel, QTextEdit, QFrame,
-    QFormLayout, QDoubleSpinBox, QPushButton, QSizePolicy
+    QFormLayout, QDoubleSpinBox, QPushButton, QSizePolicy,
+    QListWidget, QListWidgetItem, QAbstractItemView
 )
 from PyQt5.QtCore import QTimer
 import rospy
@@ -10,8 +11,10 @@ import rosgraph
 import cv2
 from cv_bridge import CvBridge
 from sensor_msgs.msg import Image
+from arm_vision.msg import DetectedObjectPool
 from PyQt5.QtGui import QImage, QPixmap
 import numpy as np
+import time
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -22,6 +25,14 @@ class MainWindow(QMainWindow):
         self.init_ui()
         self.bind_signals()
 
+        self.target_list_lock_until = 0.0
+        # YOLO 类别映射
+        self.class_names = {
+            0: "blue_box",
+            1: "green_cylinder",
+            2: "red_box",
+            3: "yellow_cylinder",
+        }
         # 先不init_node，否则roscore没运行的话gui也起不来
         # rospy.init_node("qt_gui", anonymous=True)
             
@@ -37,6 +48,9 @@ class MainWindow(QMainWindow):
         self.btn_move_to.clicked.connect(self.on_move_to_clicked)
         self.btn_open_gripper.clicked.connect(self.on_open_gripper_clicked)
         self.btn_close_gripper.clicked.connect(self.on_close_gripper_clicked)
+
+        # 点击列表目标自动填入坐标
+        self.target_list.itemClicked.connect(self.on_target_selected)
     
     # ros状态监测定时器
     def start_ros_monitor(self):
@@ -142,6 +156,7 @@ class MainWindow(QMainWindow):
         self.image_sub = None
         self.gripper_rgb_sub = None
         self.gripper_depth_sub = None
+        self.detected_objects_sub = None
 
         # 最新帧缓存
         self.latest_global_rgb = None
@@ -173,6 +188,12 @@ class MainWindow(QMainWindow):
                 "/gripper_camera/depth/image_rect_raw",
                 Image,
                 self.gripper_depth_callback
+            )
+
+            self.detected_objects_sub = rospy.Subscriber(
+                "/detected_objects",
+                DetectedObjectPool,
+                self.detected_objects_callback
             )
 
             self.image_started = True
@@ -279,6 +300,74 @@ class MainWindow(QMainWindow):
         except Exception as e:
             print(f"gripper_depth_callback error: {e}")
 
+    def on_target_selected(self, item):
+        try:
+            # 点击后锁住列表刷新 0.8 秒，避免刚选中就被刷新掉
+            self.target_list_lock_until = time.time() + 0.8
+
+            pos = item.data(Qt.UserRole)
+            if pos is None:
+                return
+
+            x, y, z = pos
+
+            self.spin_x.setValue(x)
+            self.spin_y.setValue(y)
+            self.spin_z.setValue(z)
+
+            self.log_text.append(
+                f"Target selected → MoveTo ({x:.3f}, {y:.3f}, {z:.3f})"
+            )
+
+        except Exception as e:
+            print(f"on_target_selected error: {e}")
+    
+    def update_target_list_height(self):
+        count = self.target_list.count()
+
+        # 每一项大约高度
+        row_h = 24
+        frame = 8
+
+        # 至少显示 2 行，最多显示 10 行
+        visible_rows = max(2, min(count, 10))
+
+        total_h = visible_rows * row_h + frame
+        self.target_list.setFixedHeight(total_h)
+        
+    def detected_objects_callback(self, msg):
+        try:
+            # 清空列表
+            self.target_list.clear()
+
+            if not msg.objects:
+                self.target_list.addItem("暂无目标")
+                self.update_target_list_height()
+                return
+
+            for i, obj in enumerate(msg.objects):
+                cls_id = obj.class_id
+                conf = obj.confidence
+
+                name = self.class_names.get(cls_id, f"class_{cls_id}")
+
+                x = obj.pose.pose.position.x
+                y = obj.pose.pose.position.y
+                z = obj.pose.pose.position.z
+
+                text = f"{i+1}. {name}  conf={conf:.2f}  ({x:.2f}, {y:.2f}, {z:.2f})"
+
+                item = QListWidgetItem(text)
+                # 绑定世界坐标
+                item.setData(Qt.UserRole, (x, y, z))
+
+                self.target_list.addItem(item)
+
+            self.update_target_list_height()
+
+        except Exception as e:
+            print(f"detected_objects_callback error: {e}")
+
     def init_ui(self):
         # 主窗口里的主控件，占整片区域
         central_widget = QWidget()
@@ -371,6 +460,29 @@ class MainWindow(QMainWindow):
 
         vision_box = QGroupBox("视觉区")
 
+        vision_outer_layout = QVBoxLayout()
+
+        # ===== 当前目标栏 =====
+        target_box = QGroupBox("当前检测目标")
+
+        target_layout = QVBoxLayout()
+
+        self.target_list = QListWidget()
+        self.target_list.addItem("暂无目标")
+
+        # 只允许单选
+        self.target_list.setSelectionMode(QAbstractItemView.SingleSelection)
+
+        # 每行更清楚一些
+        self.target_list.setSpacing(2)
+
+        # 先给一个较小默认高度，后面会动态调整
+        self.target_list.setFixedHeight(70)
+
+        target_layout.addWidget(self.target_list)
+        target_box.setLayout(target_layout)
+        target_box.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+
         vision_layout = QGridLayout()
         vision_layout.setRowStretch(0, 1)
         vision_layout.setRowStretch(1, 1)
@@ -412,7 +524,11 @@ class MainWindow(QMainWindow):
         vision_layout.addWidget(self.label_gripper_rgb, 1, 0)
         vision_layout.addWidget(self.label_gripper_depth, 1, 1)
 
-        vision_box.setLayout(vision_layout)
+        # 检测目标列表
+        vision_outer_layout.addWidget(target_box, 0)
+        vision_outer_layout.addLayout(vision_layout, 1)
+
+        vision_box.setLayout(vision_outer_layout)
 
         center_panel.addWidget(vision_box)
 
