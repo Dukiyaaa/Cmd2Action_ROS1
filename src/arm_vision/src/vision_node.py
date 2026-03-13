@@ -176,7 +176,7 @@ class VisionNode:
 
         # 可视化
         rgb = self.visualizer.draw_detections(rgb, detections)
-        cv2.imshow('RGB Image', rgb)
+        # cv2.imshow('RGB Image', rgb)
         # cv2.imshow('Depth Image', depth)
         cv2.waitKey(1)
 
