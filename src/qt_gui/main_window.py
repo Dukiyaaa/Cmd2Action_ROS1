@@ -12,7 +12,7 @@ import cv2
 from cv_bridge import CvBridge
 from sensor_msgs.msg import Image
 from arm_vision.msg import DetectedObjectPool
-from PyQt5.QtGui import QImage, QPixmap
+from PyQt5.QtGui import QImage, QPixmap, QFont
 import numpy as np
 import time
 
@@ -365,8 +365,7 @@ class MainWindow(QMainWindow):
                 y = obj.pose.pose.position.y
                 z = obj.pose.pose.position.z
 
-                text = f"{i+1}. {name}  conf={conf:.2f}  ({x:.2f}, {y:.2f}, {z:.2f})"
-
+                text = f"{i+1:<2} {name:<16} conf={conf:>4.2f}   ({x:>5.2f}, {y:>5.2f}, {z:>5.2f})"
                 item = QListWidgetItem(text)
 
                 # 保存世界坐标
@@ -486,6 +485,7 @@ class MainWindow(QMainWindow):
         target_layout = QVBoxLayout()
 
         self.target_list = QListWidget()
+        self.target_list.setFont(QFont("Monospace", 11))
         self.target_list.addItem("暂无目标")
 
         # 只允许单选
