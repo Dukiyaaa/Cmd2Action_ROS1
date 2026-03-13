@@ -325,17 +325,7 @@ class MainWindow(QMainWindow):
             print(f"on_target_selected error: {e}")
     
     def update_target_list_height(self):
-        count = self.target_list.count()
-
-        # 每一项大约高度
-        row_h = 50
-        frame = 8
-
-        # 至少显示 2 行，最多显示 10 行
-        visible_rows = max(2, min(count, 10))
-
-        total_h = visible_rows * row_h + frame
-        self.target_list.setFixedHeight(total_h)
+        self.target_list.setFixedHeight(140)
     
     def update_target_list(self):
         try:
@@ -495,7 +485,7 @@ class MainWindow(QMainWindow):
         self.target_list.setSpacing(2)
 
         # 先给一个较小默认高度，后面会动态调整
-        self.target_list.setFixedHeight(70)
+        self.target_list.setFixedHeight(140)
 
         target_layout.addWidget(self.target_list)
         target_box.setLayout(target_layout)
