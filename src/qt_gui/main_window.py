@@ -50,7 +50,7 @@ class MainWindow(QMainWindow):
         self.btn_close_gripper.clicked.connect(self.on_close_gripper_clicked)
 
         # 点击列表目标自动填入坐标
-        self.target_list.itemClicked.connect(self.on_target_selected)
+        self.target_list.itemPressed.connect(self.on_target_selected)
     
     # ros状态监测定时器
     def start_ros_monitor(self):
@@ -130,6 +130,7 @@ class MainWindow(QMainWindow):
             if self.latest_gripper_depth is not None:
                 self.show_gray_image(self.label_gripper_depth, self.latest_gripper_depth)
 
+            self.update_target_list()
         except Exception as e:
             print(f"update_video_frames error: {e}")
     # move_to按钮被按下后执行的函数
@@ -162,6 +163,7 @@ class MainWindow(QMainWindow):
         self.latest_global_rgb = None
         self.latest_gripper_rgb = None
         self.latest_gripper_depth = None
+        self.latest_detected_objects = None
 
         self.image_started = False
         
@@ -334,18 +336,26 @@ class MainWindow(QMainWindow):
 
         total_h = visible_rows * row_h + frame
         self.target_list.setFixedHeight(total_h)
-        
-    def detected_objects_callback(self, msg):
+    
+    def update_target_list(self):
         try:
-            # 清空列表
+            # 用户刚点击过目标时，暂时不刷新列表
+            if time.time() < self.target_list_lock_until:
+                return
+
+            objs = self.latest_detected_objects
+
+            if objs is None:
+                return
+
             self.target_list.clear()
 
-            if not msg.objects:
+            if len(objs) == 0:
                 self.target_list.addItem("暂无目标")
                 self.update_target_list_height()
                 return
 
-            for i, obj in enumerate(msg.objects):
+            for i, obj in enumerate(objs):
                 cls_id = obj.class_id
                 conf = obj.confidence
 
@@ -358,13 +368,21 @@ class MainWindow(QMainWindow):
                 text = f"{i+1}. {name}  conf={conf:.2f}  ({x:.2f}, {y:.2f}, {z:.2f})"
 
                 item = QListWidgetItem(text)
-                # 绑定世界坐标
+
+                # 保存世界坐标
                 item.setData(Qt.UserRole, (x, y, z))
 
                 self.target_list.addItem(item)
 
             self.update_target_list_height()
 
+        except Exception as e:
+            print(f"update_target_list error: {e}")
+        
+    def detected_objects_callback(self, msg):
+        try:
+            # 只缓存，不改组件
+            self.latest_detected_objects = list(msg.objects)
         except Exception as e:
             print(f"detected_objects_callback error: {e}")
 
