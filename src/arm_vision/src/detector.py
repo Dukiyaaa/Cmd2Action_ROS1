@@ -6,7 +6,7 @@ from ultralytics import YOLO
 import torch
 
 class YOLODetector:
-    def __init__(self, model_path, device='auto', conf_thres=0.45):
+    def __init__(self, model_path, device='auto', conf_thres=0.65):
         # 1. 先保存参数到实例变量
         self.model_path = model_path
         self.conf_thres = conf_thres

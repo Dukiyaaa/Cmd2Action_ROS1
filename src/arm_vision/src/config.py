@@ -4,7 +4,7 @@
 # 全局视觉固定深度--用于vision_node
 GLOBAL_FIXED_DEPTH = 1.25
 # YOLO参数
-VISION_CONF_THRESHOLD = 0.45
+VISION_CONF_THRESHOLD = 0.65
 VISION_DEVICE = 'auto'
 
 # 全局摄像头线性回归参数

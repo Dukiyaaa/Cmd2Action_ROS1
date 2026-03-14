@@ -55,7 +55,7 @@ class VisionNode:
         package_path = rospack.get_path('arm_vision')
         default_model_path = os.path.join(package_path, 'model', 'best.pt')
         self.model_path = rospy.get_param('~model_path', default_model_path)
-        self.conf_thres = rospy.get_param('~conf', 0.45)
+        self.conf_thres = rospy.get_param('~conf', 0.65)
         device_param = rospy.get_param('~device', None)
         if device_param in (None, '', 'auto'):
             self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
