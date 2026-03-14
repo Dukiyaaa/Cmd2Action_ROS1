@@ -55,6 +55,8 @@ class MainWindow(QMainWindow):
         self.btn_move_to.clicked.connect(self.on_move_to_clicked)
         self.btn_open_gripper.clicked.connect(self.on_open_gripper_clicked)
         self.btn_close_gripper.clicked.connect(self.on_close_gripper_clicked)
+        self.btn_reset.clicked.connect(self.on_reset_clicked)
+        self.btn_align_gripper_roll.clicked.connect(self.on_align_gripper_roll_clicked)
 
         # 点击列表目标自动填入坐标
         self.target_list.itemPressed.connect(self.on_target_selected)
@@ -204,11 +206,54 @@ class MainWindow(QMainWindow):
 
     # 夹爪控制按钮被按下后执行的函数
     def on_open_gripper_clicked(self):
-        self.log_text.append("Open Gripper command sent")
+        if self.open_gripper_pub is None:
+            self.log_text.append("Open Gripper failed: /gui/open_gripper publisher not ready")
+            return
 
+        msg = PoseStamped()
+        msg.header.stamp = rospy.Time.now()
+        msg.header.frame_id = "world"
+
+        self.open_gripper_pub.publish(msg)
+        self.log_text.append("Open Gripper published -> /gui/open_gripper")
+
+    # 闭合夹爪
     def on_close_gripper_clicked(self):
-        self.log_text.append("Close Gripper command sent")
+        if self.close_gripper_pub is None:
+            self.log_text.append("Close Gripper failed: /gui/close_gripper publisher not ready")
+            return
 
+        msg = PoseStamped()
+        msg.header.stamp = rospy.Time.now()
+        msg.header.frame_id = "world"
+
+        self.close_gripper_pub.publish(msg)
+        self.log_text.append("Close Gripper published -> /gui/close_gripper")
+
+    def on_reset_clicked(self):
+        if self.reset_pub is None:
+            self.log_text.append("Reset failed: /gui/reset publisher not ready")
+            return
+
+        msg = PoseStamped()
+        msg.header.stamp = rospy.Time.now()
+        msg.header.frame_id = "world"
+
+        self.reset_pub.publish(msg)
+        self.log_text.append("Reset published -> /gui/reset")
+    
+    def on_align_gripper_roll_clicked(self):
+        if self.align_gripper_roll_pub is None:
+            self.log_text.append("Align Gripper Roll failed: /gui/align_gripper_roll publisher not ready")
+            return
+
+        msg = PoseStamped()
+        msg.header.stamp = rospy.Time.now()
+        msg.header.frame_id = "world"
+
+        self.align_gripper_roll_pub.publish(msg)
+        self.log_text.append("Align Gripper Roll published -> /gui/align_gripper_roll")
+        
     # 图像话题订阅及取图
     def start_image_subscriber(self):
         # 回调函数内只缓存最新图像，组件更新图像放到定时器里做
@@ -222,6 +267,10 @@ class MainWindow(QMainWindow):
 
         # 发布器句柄
         self.move_to_pub = None
+        self.reset_pub = None
+        self.open_gripper_pub = None
+        self.close_gripper_pub = None
+        self.align_gripper_roll_pub = None
 
         # 最新帧缓存
         self.latest_global_rgb = None
@@ -264,6 +313,30 @@ class MainWindow(QMainWindow):
 
             self.move_to_pub = rospy.Publisher(
                 "/gui/move_to_pose",
+                PoseStamped,
+                queue_size=10
+            )
+
+            self.reset_pub = rospy.Publisher(
+                "/gui/reset",
+                PoseStamped,
+                queue_size=10
+            )
+
+            self.open_gripper_pub = rospy.Publisher(
+                "/gui/open_gripper",
+                PoseStamped,
+                queue_size=10
+            )
+            
+            self.close_gripper_pub = rospy.Publisher(
+                "/gui/close_gripper",
+                PoseStamped,
+                queue_size=10
+            )
+
+            self.align_gripper_roll_pub = rospy.Publisher(
+                "/gui/align_gripper_roll",
                 PoseStamped,
                 queue_size=10
             )
@@ -394,7 +467,7 @@ class MainWindow(QMainWindow):
 
         except Exception as e:
             print(f"on_target_selected error: {e}")
-    
+        
     def update_target_list_height(self):
         self.target_list.setFixedHeight(180)
     
@@ -511,15 +584,20 @@ class MainWindow(QMainWindow):
 
         # move_to 按钮
         self.btn_move_to = QPushButton("Move To")
-
         # 夹爪按钮
         self.btn_open_gripper = QPushButton("Open Gripper")
         self.btn_close_gripper = QPushButton("Close Gripper")
+        # 复位按钮
+        self.btn_reset = QPushButton("Reset")
+        # 对齐夹爪
+        self.btn_align_gripper_roll = QPushButton("Align Gripper Roll")
 
         manual_layout.addLayout(form_layout)
         manual_layout.addWidget(self.btn_move_to)
         manual_layout.addWidget(self.btn_open_gripper)
         manual_layout.addWidget(self.btn_close_gripper)
+        manual_layout.addWidget(self.btn_reset)
+        manual_layout.addWidget(self.btn_align_gripper_roll)
 
         manual_box.setLayout(manual_layout)
 

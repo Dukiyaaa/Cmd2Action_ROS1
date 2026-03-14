@@ -49,13 +49,32 @@ class Agent:
         # 订阅 LLM 指令
         self.sub = rospy.Subscriber('/llm_commands', LLMCommands, self._llm_callback)
 
-        # 订阅 GUI 手动 Move To 指令
+        # 订阅 GUI 手动控制指令
         self.gui_move_to_sub = rospy.Subscriber(
             '/gui/move_to_pose',
             PoseStamped,
             self._gui_move_to_callback
         )
-
+        self.gui_reset_sub = rospy.Subscriber(
+            '/gui/reset',
+            PoseStamped,
+            self._gui_reset_callback
+        )
+        self.gui_open_gripper_sub = rospy.Subscriber(
+            '/gui/open_gripper',
+            PoseStamped,
+            self._gui_open_gripper_callback
+        )
+        self.gui_close_gripper_sub = rospy.Subscriber(
+            '/gui/close_gripper',
+            PoseStamped,
+            self._gui_close_gripper_callback
+        )
+        self.gui_align_gripper_roll_sub = rospy.Subscriber(
+            '/gui/align_gripper_roll',
+            PoseStamped,
+            self._gui_align_gripper_roll_callback
+        )
         rospy.loginfo("Agent 已启动,等待 LLM / GUI 指令...")
         
     def _llm_callback(self, msg):            
@@ -235,3 +254,39 @@ class Agent:
             rospy.loginfo(f"[GUI] move_to executed: ({x:.3f}, {y:.3f}, {z:.3f})")
         except Exception as e:
             rospy.logerr(f"[GUI] move_to failed: {e}")
+
+    def _gui_reset_callback(self, msg):
+        rospy.loginfo("[GUI] reset received")
+
+        try:
+            self.controller.reset()
+            rospy.loginfo("[GUI] reset executed")
+        except Exception as e:
+            rospy.logerr(f"[GUI] reset failed: {e}")
+
+    def _gui_open_gripper_callback(self, msg):
+        rospy.loginfo("[GUI] open_gripper received")
+
+        try:
+            self.controller.open_gripper()
+            rospy.loginfo("[GUI] open_gripper executed")
+        except Exception as e:
+            rospy.logerr(f"[GUI] open_gripper failed: {e}")
+
+    def _gui_close_gripper_callback(self, msg):
+        rospy.loginfo("[GUI] close_gripper received")
+
+        try:
+            self.controller.close_gripper()
+            rospy.loginfo("[GUI] close_gripper executed")
+        except Exception as e:
+            rospy.logerr(f"[GUI] close_gripper failed: {e}")
+        
+    def _gui_align_gripper_roll_callback(self, msg):
+        rospy.loginfo("[GUI] align_gripper_roll received")
+
+        try:
+            self.controller.align_gripper_roll()
+            rospy.loginfo("[GUI] align_gripper_roll executed")
+        except Exception as e:
+            rospy.logerr(f"[GUI] align_gripper_roll failed: {e}")
