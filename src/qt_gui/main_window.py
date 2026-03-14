@@ -57,6 +57,9 @@ class MainWindow(QMainWindow):
         self.btn_close_gripper.clicked.connect(self.on_close_gripper_clicked)
         self.btn_reset.clicked.connect(self.on_reset_clicked)
         self.btn_align_gripper_roll.clicked.connect(self.on_align_gripper_roll_clicked)
+        self.btn_gripper_down.clicked.connect(self.on_gripper_down_clicked)
+        self.btn_pick.clicked.connect(self.on_pick_clicked)
+        self.btn_place.clicked.connect(self.on_place_clicked)
 
         # 点击列表目标自动填入坐标
         self.target_list.itemPressed.connect(self.on_target_selected)
@@ -253,6 +256,78 @@ class MainWindow(QMainWindow):
 
         self.align_gripper_roll_pub.publish(msg)
         self.log_text.append("Align Gripper Roll published -> /gui/align_gripper_roll")
+
+    def on_gripper_down_clicked(self):
+        x = self.spin_x.value()
+        y = self.spin_y.value()
+
+        if self.gripper_down_pub is None:
+            self.log_text.append("Gripper Down failed: /gui/gripper_down publisher not ready")
+            return
+
+        msg = PoseStamped()
+        msg.header.stamp = rospy.Time.now()
+        msg.header.frame_id = "world"
+
+        msg.pose.position.x = x
+        msg.pose.position.y = y
+        msg.pose.position.z = 0.0
+
+        msg.pose.orientation.x = 0.0
+        msg.pose.orientation.y = 0.0
+        msg.pose.orientation.z = 0.0
+        msg.pose.orientation.w = 1.0
+
+        self.gripper_down_pub.publish(msg)
+        self.log_text.append(
+            f"Gripper Down published -> /gui/gripper_down : ({x:.3f}, {y:.3f})"
+        )
+    
+    def on_pick_clicked(self):
+        x = self.spin_x.value()
+        y = self.spin_y.value()
+        z = self.spin_z.value()
+
+        if self.pick_pub is None:
+            self.log_text.append("Pick failed: /gui/pick publisher not ready")
+            return
+
+        msg = PoseStamped()
+        msg.header.stamp = rospy.Time.now()
+        msg.header.frame_id = "world"
+
+        msg.pose.position.x = x
+        msg.pose.position.y = y
+        msg.pose.position.z = z
+
+        self.pick_pub.publish(msg)
+
+        self.log_text.append(
+            f"Pick published -> ({x:.3f}, {y:.3f}, {z:.3f})"
+        )
+
+    def on_place_clicked(self):
+        x = self.spin_x.value()
+        y = self.spin_y.value()
+        z = self.spin_z.value()
+
+        if self.place_pub is None:
+            self.log_text.append("Place failed: /gui/place publisher not ready")
+            return
+
+        msg = PoseStamped()
+        msg.header.stamp = rospy.Time.now()
+        msg.header.frame_id = "world"
+
+        msg.pose.position.x = x
+        msg.pose.position.y = y
+        msg.pose.position.z = z
+
+        self.place_pub.publish(msg)
+
+        self.log_text.append(
+            f"Place published -> ({x:.3f}, {y:.3f}, {z:.3f})"
+        )
         
     # 图像话题订阅及取图
     def start_image_subscriber(self):
@@ -271,6 +346,9 @@ class MainWindow(QMainWindow):
         self.open_gripper_pub = None
         self.close_gripper_pub = None
         self.align_gripper_roll_pub = None
+        self.gripper_down_pub = None
+        self.pick_pub = None
+        self.place_pub = None
 
         # 最新帧缓存
         self.latest_global_rgb = None
@@ -337,6 +415,24 @@ class MainWindow(QMainWindow):
 
             self.align_gripper_roll_pub = rospy.Publisher(
                 "/gui/align_gripper_roll",
+                PoseStamped,
+                queue_size=10
+            )
+
+            self.gripper_down_pub = rospy.Publisher(
+                "/gui/gripper_down",
+                PoseStamped,
+                queue_size=10
+            )
+            
+            self.pick_pub = rospy.Publisher(
+                "/gui/pick",
+                PoseStamped,
+                queue_size=10
+            )
+
+            self.place_pub = rospy.Publisher(
+                "/gui/place",
                 PoseStamped,
                 queue_size=10
             )
@@ -591,6 +687,11 @@ class MainWindow(QMainWindow):
         self.btn_reset = QPushButton("Reset")
         # 对齐夹爪
         self.btn_align_gripper_roll = QPushButton("Align Gripper Roll")
+        # 下降夹爪按钮
+        self.btn_gripper_down = QPushButton("Gripper Down")
+        # pick、place
+        self.btn_pick = QPushButton("Pick")
+        self.btn_place = QPushButton("Place")
 
         manual_layout.addLayout(form_layout)
         manual_layout.addWidget(self.btn_move_to)
@@ -598,6 +699,9 @@ class MainWindow(QMainWindow):
         manual_layout.addWidget(self.btn_close_gripper)
         manual_layout.addWidget(self.btn_reset)
         manual_layout.addWidget(self.btn_align_gripper_roll)
+        manual_layout.addWidget(self.btn_gripper_down)
+        manual_layout.addWidget(self.btn_pick)
+        manual_layout.addWidget(self.btn_place)
 
         manual_box.setLayout(manual_layout)
 

@@ -75,6 +75,21 @@ class Agent:
             PoseStamped,
             self._gui_align_gripper_roll_callback
         )
+        self.gui_gripper_down_sub = rospy.Subscriber(
+            '/gui/gripper_down',
+            PoseStamped,
+            self._gui_gripper_down_callback
+        )
+        self.gui_pick_sub = rospy.Subscriber(
+            '/gui/pick',
+            PoseStamped,
+            self._gui_pick_callback
+        )
+        self.gui_place_sub = rospy.Subscriber(
+            '/gui/place',
+            PoseStamped,
+            self._gui_place_callback
+        )
         rospy.loginfo("Agent 已启动,等待 LLM / GUI 指令...")
         
     def _llm_callback(self, msg):            
@@ -290,3 +305,67 @@ class Agent:
             rospy.loginfo("[GUI] align_gripper_roll executed")
         except Exception as e:
             rospy.logerr(f"[GUI] align_gripper_roll failed: {e}")
+
+    def _gui_gripper_down_callback(self, msg):
+        x = msg.pose.position.x
+        y = msg.pose.position.y
+
+        rospy.loginfo(f"[GUI] gripper_down received: x={x:.3f}, y={y:.3f}")
+
+        try:
+            self.controller.gripper_down(x, y)
+            rospy.loginfo(f"[GUI] gripper_down executed: ({x:.3f}, {y:.3f})")
+        except Exception as e:
+            rospy.logerr(f"[GUI] gripper_down failed: {e}")
+
+    def _gui_pick_callback(self, msg):
+        x = msg.pose.position.x
+        y = msg.pose.position.y
+        z = msg.pose.position.z
+
+        obj_pose = (x, y, z)
+
+        rospy.loginfo(
+            f"[GUI] pick received: x={x:.3f}, y={y:.3f}, z={z:.3f}, frame={msg.header.frame_id}"
+        )
+
+        try:
+            task_spec = {
+                "action": ACTION_PICK,
+                "object": obj_pose,
+                "target": EMPTY_POSE
+            }
+
+            action_sequence = self.task_planner.plan(task_spec)
+            rospy.loginfo(f"[GUI] pick planned: {action_sequence}")
+
+            self._execute_action_sequence(action_sequence)
+            rospy.loginfo("[GUI] pick executed")
+        except Exception as e:
+            rospy.logerr(f"[GUI] pick failed: {e}")
+
+    def _gui_place_callback(self, msg):
+        x = msg.pose.position.x
+        y = msg.pose.position.y
+        z = msg.pose.position.z
+
+        target_pose = (x, y, z)
+
+        rospy.loginfo(
+            f"[GUI] place received: x={x:.3f}, y={y:.3f}, z={z:.3f}, frame={msg.header.frame_id}"
+        )
+
+        try:
+            task_spec = {
+                "action": ACTION_PLACE,
+                "object": EMPTY_POSE,
+                "target": target_pose
+            }
+
+            action_sequence = self.task_planner.plan(task_spec)
+            rospy.loginfo(f"[GUI] place planned: {action_sequence}")
+
+            self._execute_action_sequence(action_sequence)
+            rospy.loginfo("[GUI] place executed")
+        except Exception as e:
+            rospy.logerr(f"[GUI] place failed: {e}")
