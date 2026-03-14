@@ -46,9 +46,17 @@ class Agent:
         self.cyl_spawner = CylinderSpawner()
         self.controller.reset()
 
-        # 订阅 LLM 指令 用于llm向agent发解析后的需求
+        # 订阅 LLM 指令
         self.sub = rospy.Subscriber('/llm_commands', LLMCommands, self._llm_callback)
-        rospy.loginfo("Agent 已启动,等待 LLM 指令...")
+
+        # 订阅 GUI 手动 Move To 指令
+        self.gui_move_to_sub = rospy.Subscriber(
+            '/gui/move_to_pose',
+            PoseStamped,
+            self._gui_move_to_callback
+        )
+
+        rospy.loginfo("Agent 已启动,等待 LLM / GUI 指令...")
         
     def _llm_callback(self, msg):            
         if msg.action_type == ACTION_PICK:
@@ -212,3 +220,18 @@ class Agent:
                 self.controller.gripper_down(*args)
             else:
                 rospy.logwarn(f"Unknown action: {method_name}")
+        
+    def _gui_move_to_callback(self, msg):
+        x = msg.pose.position.x
+        y = msg.pose.position.y
+        z = msg.pose.position.z
+
+        rospy.loginfo(
+            f"[GUI] move_to received: x={x:.3f}, y={y:.3f}, z={z:.3f}, frame={msg.header.frame_id}"
+        )
+
+        try:
+            self.controller.move_to(x, y, z)
+            rospy.loginfo(f"[GUI] move_to executed: ({x:.3f}, {y:.3f}, {z:.3f})")
+        except Exception as e:
+            rospy.logerr(f"[GUI] move_to failed: {e}")

@@ -11,6 +11,7 @@ import rosgraph
 import cv2
 from cv_bridge import CvBridge
 from sensor_msgs.msg import Image
+from geometry_msgs.msg import PoseStamped
 from arm_vision.msg import DetectedObjectPool
 from PyQt5.QtGui import QImage, QPixmap, QFont
 import numpy as np
@@ -35,7 +36,13 @@ class MainWindow(QMainWindow):
         }
         # 先不init_node，否则roscore没运行的话gui也起不来
         # rospy.init_node("qt_gui", anonymous=True)
-            
+        
+        # move_to安全范围校验
+        self.x_min, self.x_max = 0.3, 1.0
+        self.y_min, self.y_max = -0.8, 0.8
+        self.z_min = 0.4
+
+        self.update_move_to_button_state()
         # 启动状态监测
         self.start_ros_monitor()
         # 启动图像订阅
@@ -51,6 +58,10 @@ class MainWindow(QMainWindow):
 
         # 点击列表目标自动填入坐标
         self.target_list.itemPressed.connect(self.on_target_selected)
+        # 根据填入的xyz判断能否点move_to按钮
+        self.spin_x.valueChanged.connect(self.update_move_to_button_state)
+        self.spin_y.valueChanged.connect(self.update_move_to_button_state)
+        self.spin_z.valueChanged.connect(self.update_move_to_button_state)
     
     # ros状态监测定时器
     def start_ros_monitor(self):
@@ -114,6 +125,34 @@ class MainWindow(QMainWindow):
             self.label_main_status.setText("Main Node: 未连接")
             self.label_main_status.setStyleSheet("color: red")
 
+    def get_move_to_invalid_reason(self, x, y, z):
+        if x < self.x_min or x > self.x_max:
+            return f"x out of range [{self.x_min:.2f}, {self.x_max:.2f}]"
+
+        if y < self.y_min or y > self.y_max:
+            return f"y out of range [{self.y_min:.2f}, {self.y_max:.2f}]"
+
+        if z <= self.z_min:
+            return f"z too low (must > {self.z_min:.2f})"
+
+        return None
+
+    def update_move_to_button_state(self):
+        x = self.spin_x.value()
+        y = self.spin_y.value()
+        z = self.spin_z.value()
+
+        reason = self.get_move_to_invalid_reason(x, y, z)
+
+        if reason is None:
+            self.btn_move_to.setEnabled(True)
+            self.btn_move_to.setText("Move To")
+            self.btn_move_to.setToolTip("Move to the specified safe pose")
+        else:
+            self.btn_move_to.setEnabled(False)
+            self.btn_move_to.setText("Move To")
+            self.btn_move_to.setToolTip(reason)
+
     def start_video_timer(self):
         self.video_timer = QTimer()
         self.video_timer.timeout.connect(self.update_video_frames)
@@ -139,7 +178,29 @@ class MainWindow(QMainWindow):
         y = self.spin_y.value()
         z = self.spin_z.value()
 
-        self.log_text.append(f"Move To clicked: x={x:.3f}, y={y:.3f}, z={z:.3f}")
+        if self.move_to_pub is None:
+            self.log_text.append("Move To failed: /gui/move_to_pose publisher not ready")
+            return
+
+        msg = PoseStamped()
+        msg.header.stamp = rospy.Time.now()
+        msg.header.frame_id = "world"
+
+        msg.pose.position.x = x
+        msg.pose.position.y = y
+        msg.pose.position.z = z
+
+        # 先给一个默认朝向，后面再扩展 yaw / quaternion
+        msg.pose.orientation.x = 0.0
+        msg.pose.orientation.y = 0.0
+        msg.pose.orientation.z = 0.0
+        msg.pose.orientation.w = 1.0
+
+        self.move_to_pub.publish(msg)
+
+        self.log_text.append(
+            f"Move To published -> /gui/move_to_pose : ({x:.3f}, {y:.3f}, {z:.3f})"
+        )
 
     # 夹爪控制按钮被按下后执行的函数
     def on_open_gripper_clicked(self):
@@ -158,6 +219,9 @@ class MainWindow(QMainWindow):
         self.gripper_rgb_sub = None
         self.gripper_depth_sub = None
         self.detected_objects_sub = None
+
+        # 发布器句柄
+        self.move_to_pub = None
 
         # 最新帧缓存
         self.latest_global_rgb = None
@@ -196,6 +260,12 @@ class MainWindow(QMainWindow):
                 "/detected_objects",
                 DetectedObjectPool,
                 self.detected_objects_callback
+            )
+
+            self.move_to_pub = rospy.Publisher(
+                "/gui/move_to_pose",
+                PoseStamped,
+                queue_size=10
             )
 
             self.image_started = True
@@ -317,6 +387,7 @@ class MainWindow(QMainWindow):
             self.spin_y.setValue(y)
             self.spin_z.setValue(z)
 
+            self.update_move_to_button_state()
             self.log_text.append(
                 f"Target selected → MoveTo ({x:.3f}, {y:.3f}, {z:.3f})"
             )
