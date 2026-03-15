@@ -182,6 +182,8 @@ class MainWindow(QMainWindow):
             if self.latest_gripper_depth is not None:
                 self.show_gray_image(self.label_gripper_depth, self.latest_gripper_depth)
 
+            if self.latest_world_rgb is not None:
+                self.show_cv_image(self.label_world, self.latest_world_rgb)
             self.update_target_list()
         except Exception as e:
             print(f"update_video_frames error: {e}")
@@ -415,7 +417,7 @@ class MainWindow(QMainWindow):
         self.log_text.append(f"NL Command sent -> {text}")
 
         self.edit_nl_command.clear()
-        
+
     # 图像话题订阅及取图
     def start_image_subscriber(self):
         # 回调函数内只缓存最新图像，组件更新图像放到定时器里做
@@ -442,6 +444,7 @@ class MainWindow(QMainWindow):
         self.latest_global_rgb = None
         self.latest_gripper_rgb = None
         self.latest_gripper_depth = None
+        self.latest_world_rgb = None
         self.latest_detected_objects = None
 
         self.image_started = False
@@ -477,6 +480,13 @@ class MainWindow(QMainWindow):
                 self.detected_objects_callback
             )
 
+            # 观察摄像机图像话题
+            self.world_image_sub = rospy.Subscriber(
+                "/world_camera/image_raw",
+                Image,
+                self.world_camera_callback
+            )
+            
             self.move_to_pub = rospy.Publisher(
                 "/gui/move_to_pose",
                 PoseStamped,
@@ -715,6 +725,15 @@ class MainWindow(QMainWindow):
         except Exception as e:
             print(f"detected_objects_callback error: {e}")
 
+    def world_camera_callback(self, msg):
+        try:
+            cv_image = self.bridge.imgmsg_to_cv2(msg, "bgr8")
+            rgb_image = cv2.cvtColor(cv_image, cv2.COLOR_BGR2RGB)
+
+            self.latest_world_rgb = rgb_image.copy()
+
+        except Exception as e:
+            print(f"world_camera_callback error: {e}")
     def init_ui(self):
         # 主窗口里的主控件，占整片区域
         central_widget = QWidget()

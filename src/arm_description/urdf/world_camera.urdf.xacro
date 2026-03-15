@@ -1,0 +1,101 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+    <!-- 观察摄像机 -->
+    <xacro:macro name="world_camera">
+
+        <!-- 相机本体 -->
+        <link name="world_camera_link">
+            <collision>
+                <origin xyz="0 0 0" rpy="0 0 0"/>
+                <geometry>
+                    <box size="0.09 0.025 0.025"/>
+                </geometry>
+            </collision>
+
+            <visual>
+                <origin xyz="0 0 0" rpy="0 0 0"/>
+                <geometry>
+                    <box size="0.09 0.025 0.025"/>
+                </geometry>
+                <material name="dark_gray">
+                    <color rgba="0.2 0.2 0.2 1.0"/>
+                </material>
+            </visual>
+
+            <inertial>
+                <origin xyz="0 0 0" rpy="0 0 0"/>
+                <mass value="0.1"/>
+                <inertia ixx="1e-5" ixy="0" ixz="0" iyy="1e-5" iyz="0" izz="1e-5"/>
+            </inertial>
+        </link>
+
+
+        <!-- optical frame -->
+        <link name="world_camera_color_optical_frame"/>
+
+
+        <!-- 固定在 world -->
+        <joint name="world_camera_fixed_joint" type="fixed">
+            <parent link="world"/>
+            <child link="world_camera_link"/>
+
+            <!-- 推荐观察位姿 -->
+            <origin xyz="1.6 -1.5 1.0" rpy="0 0.75 2.35"/>
+        </joint>
+
+
+        <!-- optical frame -->
+        <joint name="world_camera_color_optical_joint" type="fixed">
+            <parent link="world_camera_link"/>
+            <child link="world_camera_color_optical_frame"/>
+            <origin xyz="0 0 0" rpy="1.5708 0 1.5708"/>
+        </joint>
+
+
+        <!-- Gazebo 相机 -->
+        <gazebo reference="world_camera_link">
+            <sensor name="world_color_camera" type="camera">
+
+                <camera>
+
+                    <!-- 视野可以稍微大一点 -->
+                    <horizontal_fov>1.396</horizontal_fov> <!-- 约 80° -->
+
+                    <image>
+                        <width>848</width>
+                        <height>480</height>
+                        <format>R8G8B8</format>
+                    </image>
+
+                    <clip>
+                        <near>0.1</near>
+                        <far>10.0</far>
+                    </clip>
+
+                </camera>
+
+                <always_on>true</always_on>
+                <update_rate>30</update_rate>
+                <visualize>true</visualize>
+
+                <plugin name="world_camera_controller" filename="libgazebo_ros_camera.so">
+
+                    <alwaysOn>true</alwaysOn>
+                    <updateRate>30.0</updateRate>
+
+                    <cameraName>world_camera</cameraName>
+
+                    <imageTopicName>image_raw</imageTopicName>
+                    <cameraInfoTopicName>camera_info</cameraInfoTopicName>
+
+                    <frameName>world_camera_color_optical_frame</frameName>
+
+                </plugin>
+
+            </sensor>
+        </gazebo>
+
+    </xacro:macro>
+
+</robot>
