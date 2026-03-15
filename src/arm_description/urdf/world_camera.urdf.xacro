@@ -41,7 +41,7 @@
             <child link="world_camera_link"/>
 
             <!-- 推荐观察位姿 -->
-            <origin xyz="1.6 -1.5 1.0" rpy="0 0.75 2.35"/>
+            <origin xyz="2.0 -1.5 1.0" rpy="0 0.5236 2.618"/>
         </joint>
 
 
