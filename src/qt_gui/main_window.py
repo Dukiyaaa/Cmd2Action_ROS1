@@ -3,7 +3,8 @@ from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QGridLayout,
     QGroupBox, QLabel, QTextEdit, QFrame,
     QFormLayout, QDoubleSpinBox, QPushButton, QSizePolicy,
-    QListWidget, QListWidgetItem, QAbstractItemView
+    QListWidget, QListWidgetItem, QAbstractItemView,
+    QLineEdit, QComboBox
 )
 from PyQt5.QtCore import QTimer
 import rospy
@@ -13,6 +14,7 @@ from cv_bridge import CvBridge
 from sensor_msgs.msg import Image
 from geometry_msgs.msg import PoseStamped
 from arm_vision.msg import DetectedObjectPool
+from arm_application.msg import LLMCommands
 from PyQt5.QtGui import QImage, QPixmap, QFont
 import numpy as np
 import time
@@ -60,6 +62,8 @@ class MainWindow(QMainWindow):
         self.btn_gripper_down.clicked.connect(self.on_gripper_down_clicked)
         self.btn_pick.clicked.connect(self.on_pick_clicked)
         self.btn_place.clicked.connect(self.on_place_clicked)
+        self.btn_create_object.clicked.connect(self.on_create_object_clicked)
+        self.btn_delete_object.clicked.connect(self.on_delete_object_clicked)
 
         # 点击列表目标自动填入坐标
         self.target_list.itemPressed.connect(self.on_target_selected)
@@ -328,7 +332,65 @@ class MainWindow(QMainWindow):
         self.log_text.append(
             f"Place published -> ({x:.3f}, {y:.3f}, {z:.3f})"
         )
-        
+    
+    def on_create_object_clicked(self):
+        if self.llm_pub is None:
+            self.log_text.append("Create Object failed: publisher not ready")
+            return
+
+        obj_type = self.combo_object_type.currentText()
+        obj_name = self.edit_object_name.text().strip()
+
+        if obj_name == "":
+            self.log_text.append("Create Object failed: empty name")
+            return
+
+        x = self.spin_x.value()
+        y = self.spin_y.value()
+        z = self.spin_z.value()
+
+        msg = LLMCommands()
+
+        msg.action_type = "create"
+        msg.object_name = obj_name
+
+        msg.object_x = x
+        msg.object_y = y
+        msg.object_z = z
+        if obj_type == "blue_box":
+            msg.object_class_id = 0
+        elif obj_type == "green_cylinder":
+            msg.object_class_id = 1
+        elif obj_type == "red_box":
+            msg.object_class_id = 2
+        elif obj_type == "yellow_cylinder":
+            msg.object_class_id = 3
+
+        self.llm_pub.publish(msg)
+
+        self.log_text.append(
+            f"Create Object -> {obj_type} name={obj_name} pos=({x:.2f},{y:.2f},{z:.2f})"
+        )
+
+    def on_delete_object_clicked(self):
+        if self.llm_pub is None:
+            self.log_text.append("Delete Object failed: publisher not ready")
+            return
+
+        obj_name = self.edit_object_name.text().strip()
+
+        if obj_name == "":
+            self.log_text.append("Delete Object failed: empty name")
+            return
+
+        msg = LLMCommands()
+
+        msg.action_type = "delete"
+        msg.object_name = obj_name
+
+        self.llm_pub.publish(msg)
+
+        self.log_text.append(f"Delete Object -> {obj_name}")
     # 图像话题订阅及取图
     def start_image_subscriber(self):
         # 回调函数内只缓存最新图像，组件更新图像放到定时器里做
@@ -349,6 +411,7 @@ class MainWindow(QMainWindow):
         self.gripper_down_pub = None
         self.pick_pub = None
         self.place_pub = None
+        self.llm_pub = None
 
         # 最新帧缓存
         self.latest_global_rgb = None
@@ -434,6 +497,12 @@ class MainWindow(QMainWindow):
             self.place_pub = rospy.Publisher(
                 "/gui/place",
                 PoseStamped,
+                queue_size=10
+            )
+
+            self.llm_pub = rospy.Publisher(
+                "/llm_commands",
+                LLMCommands,
                 queue_size=10
             )
 
@@ -692,6 +761,20 @@ class MainWindow(QMainWindow):
         # pick、place
         self.btn_pick = QPushButton("Pick")
         self.btn_place = QPushButton("Place")
+        # 创建和删除物体
+        self.combo_object_type = QComboBox()
+        self.combo_object_type.addItems([
+            "blue_box",
+            "green_cylinder",
+            "red_box",
+            "yellow_cylinder"
+        ])
+
+        self.edit_object_name = QLineEdit()
+        self.edit_object_name.setPlaceholderText("object name")
+
+        self.btn_create_object = QPushButton("Create Object")
+        self.btn_delete_object = QPushButton("Delete Object")
 
         manual_layout.addLayout(form_layout)
         manual_layout.addWidget(self.btn_move_to)
@@ -702,6 +785,19 @@ class MainWindow(QMainWindow):
         manual_layout.addWidget(self.btn_gripper_down)
         manual_layout.addWidget(self.btn_pick)
         manual_layout.addWidget(self.btn_place)
+
+        manual_layout.addWidget(QLabel("----------- Debug Objects -----------"))
+        object_type_layout = QHBoxLayout()
+        object_type_layout.addWidget(QLabel("Object Type"))
+        object_type_layout.addWidget(self.combo_object_type)
+        manual_layout.addLayout(object_type_layout)
+        object_name_layout = QHBoxLayout()
+        object_name_layout.addWidget(QLabel("Object Name"))
+        object_name_layout.addWidget(self.edit_object_name)
+
+        manual_layout.addLayout(object_name_layout)
+        manual_layout.addWidget(self.btn_create_object)
+        manual_layout.addWidget(self.btn_delete_object)
 
         manual_box.setLayout(manual_layout)
 
