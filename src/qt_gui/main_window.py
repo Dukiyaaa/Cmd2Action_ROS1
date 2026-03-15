@@ -18,6 +18,7 @@ from arm_application.msg import LLMCommands
 from PyQt5.QtGui import QImage, QPixmap, QFont
 import numpy as np
 import time
+from std_msgs.msg import String
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -71,6 +72,9 @@ class MainWindow(QMainWindow):
         self.spin_x.valueChanged.connect(self.update_move_to_button_state)
         self.spin_y.valueChanged.connect(self.update_move_to_button_state)
         self.spin_z.valueChanged.connect(self.update_move_to_button_state)
+
+        # 自然语言命令输入
+        self.btn_send_nl_command.clicked.connect(self.on_send_nl_command_clicked)
     
     # ros状态监测定时器
     def start_ros_monitor(self):
@@ -391,6 +395,27 @@ class MainWindow(QMainWindow):
         self.llm_pub.publish(msg)
 
         self.log_text.append(f"Delete Object -> {obj_name}")
+
+    def on_send_nl_command_clicked(self):
+        text = self.edit_nl_command.toPlainText().strip()
+
+        if text == "":
+            self.log_text.append("NL Command failed: empty input")
+            return
+
+        if self.llm_user_input_pub is None:
+            self.log_text.append("NL Command failed: publisher not ready")
+            return
+
+        msg = String()
+        msg.data = text
+
+        self.llm_user_input_pub.publish(msg)
+
+        self.log_text.append(f"NL Command sent -> {text}")
+
+        self.edit_nl_command.clear()
+        
     # 图像话题订阅及取图
     def start_image_subscriber(self):
         # 回调函数内只缓存最新图像，组件更新图像放到定时器里做
@@ -503,6 +528,12 @@ class MainWindow(QMainWindow):
             self.llm_pub = rospy.Publisher(
                 "/llm_commands",
                 LLMCommands,
+                queue_size=10
+            )
+
+            self.llm_user_input_pub = rospy.Publisher(
+                "/llm_user_input",
+                String,
                 queue_size=10
             )
 
@@ -892,21 +923,36 @@ class MainWindow(QMainWindow):
         center_widget = QWidget()
         center_widget.setLayout(center_panel)
 
-        # ===== 右侧日志区 跟上面类似 =====
+        # ===== 右侧区域：日志区 + 自然语言命令输入区 =====
         right_panel = QVBoxLayout()
 
+        # ---------- 日志区 ----------
         log_box = QGroupBox("日志区")
         log_layout = QVBoxLayout()
 
         self.log_text = QTextEdit()
         self.log_text.setReadOnly(True)
         self.log_text.append("系统启动成功")
-        # self.log_text.append("这里后面放任务日志、执行状态")
 
         log_layout.addWidget(self.log_text)
         log_box.setLayout(log_layout)
 
-        right_panel.addWidget(log_box)
+        # ---------- 自然语言命令输入区 ----------
+        nl_box = QGroupBox("自然语言命令")
+        nl_layout = QVBoxLayout()
+
+        self.edit_nl_command = QTextEdit()
+        self.edit_nl_command.setPlaceholderText("请输入自然语言命令，例如：把蓝色方块移动到右侧")
+
+        self.btn_send_nl_command = QPushButton("发送命令")
+
+        nl_layout.addWidget(self.edit_nl_command)
+        nl_layout.addWidget(self.btn_send_nl_command)
+        nl_box.setLayout(nl_layout)
+
+        # 日志区占更大空间，输入区占较小空间
+        right_panel.addWidget(log_box, 3)
+        right_panel.addWidget(nl_box, 1)
 
         right_widget = QWidget()
         right_widget.setLayout(right_panel)
