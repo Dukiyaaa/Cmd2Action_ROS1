@@ -126,13 +126,15 @@ class GripperVision:
             return None
 
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
         if not contours:
             return None
 
         largest = max(contours, key=cv2.contourArea)
 
         if cv2.contourArea(largest) < min_area:
+            return None
+
+        if len(largest) < 4:
             return None
 
         return largest
@@ -142,18 +144,25 @@ class GripperVision:
         with self.lock:
             if self.rgb_image is None or self.depth_image is None:
                 return
+
             # 采用拷贝,避免在处理过程中图像被修改
             rgb = self.rgb_image.copy()
             depth = self.depth_image.copy()
-        
-        #urdf,camera_fixed_joint的旋转导致图像需要旋转180度
+
+        # urdf/camera_fixed_joint 的旋转导致图像需要旋转 180 度
         rgb = cv2.rotate(rgb, cv2.ROTATE_180)
         depth = cv2.rotate(depth, cv2.ROTATE_180)
-        
+
+        # 默认输出
+        align_angle_rad = 0.0
+        has_yaw = False
+
+        # 1. 基于深度图分离物体区域
         mask, table_depth = self._extract_object_mask_from_depth(depth)
-        if mask is not None:
+        if mask is not None and table_depth is not None:
             rospy.loginfo(f"Estimated table depth: {table_depth:.4f}")
-        
+
+        # 2. 提取最大轮廓并拟合最小外接矩形
         contour = self._get_largest_contour(mask)
         rgb_vis = rgb.copy()
 
@@ -161,38 +170,63 @@ class GripperVision:
             area = cv2.contourArea(contour)
             rospy.loginfo(f"Largest contour area: {area:.1f}")
 
+            # 画原始轮廓（绿色）
             cv2.drawContours(rgb_vis, [contour], -1, (0, 255, 0), 2)
-        
-        rect = cv2.minAreaRect(contour)
-        (cx, cy), (w, h), angle = rect
-        rospy.loginfo(f"Raw rect angle: {angle:.2f}")
 
-        box = cv2.boxPoints(rect)
-        box = box.astype(int)
-        cv2.drawContours(rgb_vis, [box], 0, (0, 0, 255), 2)
+            # 最小外接旋转矩形
+            rect = cv2.minAreaRect(contour)
+            (cx, cy), (w, h), angle = rect
 
-        # 将浮点数坐标转换为整数
+            # 画旋转矩形（红色）
+            box = cv2.boxPoints(rect)
+            box = box.astype(int)
+            cv2.drawContours(rgb_vis, [box], 0, (0, 0, 255), 2)
+
+            # 转成“夹爪对齐角”
+            if w < h:
+                align_angle_deg = angle
+            else:
+                align_angle_deg = angle + 90.0
+
+            # 归一化到 [-45, 45)
+            if align_angle_deg >= 45.0:
+                align_angle_deg -= 90.0
+
+            align_angle_rad = np.deg2rad(align_angle_deg)
+            has_yaw = True
+
+            rospy.loginfo(
+                f"Rect w={w:.2f}, h={h:.2f}, raw_angle={angle:.2f}, "
+                f"align_angle={align_angle_deg:.2f} deg ({align_angle_rad:.4f} rad)"
+            )
+        else:
+            rospy.loginfo("No valid object contour found")
+
+        # 3. 读取中心点深度并计算物体高度
         u = GRIPPER_CENTER_U
         v = GRIPPER_CENTER_V
         u_int = int(round(u))
         v_int = int(round(v))
+
         depth_value = self.get_object_depth(u_int, v_int)
-        gripper_camera_height = GRIPPER_CAMERA_HEIGHT  # 反向计算出来
-        object_height = gripper_camera_height - depth_value
-        # pose_z = object_height / 2
-        if depth_value is not None:
+        gripper_camera_height = GRIPPER_CAMERA_HEIGHT
+        object_height = 0.0
+
+        if depth_value is not None and np.isfinite(depth_value) and depth_value > 0:
+            object_height = gripper_camera_height - depth_value
             rospy.loginfo(f"Gripper Depth at ({u_int},{v_int}): {depth_value}")
             rospy.loginfo(f"Object Height at ({u_int},{v_int}): {object_height}")
         else:
-            rospy.logwarn(f"Failed to get depth value at ({u_int},{v_int})") 
-        
+            rospy.logwarn(f"Failed to get depth value at ({u_int},{v_int})")
+
+        # 4. 发布夹爪视觉结果
         msg = GripperObjectInfo()
         msg.height = object_height
-        msg.yaw = 0.0
-        msg.has_yaw = False
-
+        msg.yaw = align_angle_rad
+        msg.has_yaw = has_yaw
         self.object_info_pub.publish(msg)
-        # 可视化
+
+        # 5. 可视化
         cv2.imshow('Gripper RGB Image', rgb_vis)
 
         depth_vis = depth.copy()

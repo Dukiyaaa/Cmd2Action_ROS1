@@ -75,6 +75,9 @@ class ScaraController(AbstractController):
         self.current_joint_state = None
         rospy.Subscriber('/joint_states', JointState, self._joint_state_callback)
         self.object_height = 0.0
+        self.object_yaw = 0.0
+        self.object_has_yaw = False
+
         rospy.Subscriber('/gripper_object_info', GripperObjectInfo, self._object_info_callback)
         # 等待话题建立连接
         rospy.sleep(CONTROLLER_INIT_WAIT)
@@ -162,23 +165,88 @@ class ScaraController(AbstractController):
             rospy.logwarn("关节状态数据不完整")
             return None
 
+    def _get_current_gripper_roll_joint(self):
+        """
+        获取当前 gripper_roll 关节角（弧度）
+        """
+        if self.current_joint_state is None:
+            rospy.logwarn("尚未接收到关节状态信息")
+            return None
+
+        try:
+            gripper_roll_idx = self.current_joint_state.name.index('gripper_roll')
+            return self.current_joint_state.position[gripper_roll_idx]
+        except ValueError:
+            rospy.logwarn("未找到 gripper_roll 关节")
+            return None
+        except IndexError:
+            rospy.logwarn("gripper_roll 关节状态数据不完整")
+            return None
+    
+    def _normalize_align_yaw(self, yaw: float) -> float:
+        """
+        将视觉对齐角归一化到 [-pi/4, pi/4]，消除正方形/矩形的 90° 等价歧义
+        """
+        half_pi = np.pi / 2.0
+        quarter_pi = np.pi / 4.0
+
+        # 先拉回到 [-pi, pi]
+        yaw = np.arctan2(np.sin(yaw), np.cos(yaw))
+
+        # 再按 90° 周期折叠到 [-45°, 45°]
+        while yaw > quarter_pi:
+            yaw -= half_pi
+        while yaw < -quarter_pi:
+            yaw += half_pi
+
+        return yaw
+
     def align_gripper_roll(self, duration: float = ALIGN_GRIPPER_DURATION) -> None:
         """
-        对齐夹爪朝向：获取当前 yaw 角,然后旋转夹爪使其回到初始朝向(相对于世界坐标系为 0)
-
+        根据夹爪相机估计得到的物体对齐角，旋转夹爪进行对齐
         """
-        yaw = self._get_gripper_roll_yaw()
-        rospy.loginfo(f"当前 gripper_roll yaw 角: {yaw:.3f} rad ({np.degrees(yaw):.1f} 度)")
-        if yaw is not None:
-            self.gripper_roll_pub.publish(Float64(-yaw))
-            rospy.loginfo("旋转夹爪以对齐初始朝向")
-            rospy.sleep(duration)
-        else:
-            rospy.loginfo("无法获取 gripper_roll yaw 角")
+        current_yaw = self._get_gripper_roll_yaw()
+        current_roll_joint = self._get_current_gripper_roll_joint()
+
+        if current_yaw is None:
+            rospy.loginfo("无法获取当前夹爪世界 yaw")
+            return
+
+        if current_roll_joint is None:
+            rospy.loginfo("无法获取当前 gripper_roll 关节角")
+            return
+
+        if not self.object_has_yaw:
+            rospy.loginfo("当前目标没有有效 yaw，跳过夹爪对齐")
+            return
+
+        raw_target_yaw = self.object_yaw
+        target_yaw = self._normalize_align_yaw(raw_target_yaw)
+
+        # 这是“需要补偿的量”，不是绝对关节目标
+        delta_roll = -target_yaw
+
+        # position_controller 需要的是绝对目标角
+        new_roll_joint = current_roll_joint + delta_roll
+
+        rospy.loginfo(
+            f"current_yaw={current_yaw:.3f} rad ({np.degrees(current_yaw):.1f} deg), "
+            f"current_roll_joint={current_roll_joint:.3f} rad ({np.degrees(current_roll_joint):.1f} deg), "
+            f"raw_target_yaw={raw_target_yaw:.3f} rad ({np.degrees(raw_target_yaw):.1f} deg), "
+            f"normalized_target_yaw={target_yaw:.3f} rad ({np.degrees(target_yaw):.1f} deg), "
+            f"delta_roll={delta_roll:.3f} rad ({np.degrees(delta_roll):.1f} deg), "
+            f"new_roll_joint={new_roll_joint:.3f} rad ({np.degrees(new_roll_joint):.1f} deg)"
+        )
+
+        self.gripper_roll_pub.publish(Float64(new_roll_joint))
+        rospy.loginfo("旋转夹爪以对齐物体方向")
+        rospy.sleep(duration)
 
     # 基于深度相机数据，自适应下降
     def _object_info_callback(self, msg):
         self.object_height = msg.height
+        self.object_yaw = msg.yaw
+        self.object_has_yaw = msg.has_yaw
 
     def gripper_down(self, x: float, y: float, duration: float = GRIPPER_DOWN_DURATION) -> None:
         """
