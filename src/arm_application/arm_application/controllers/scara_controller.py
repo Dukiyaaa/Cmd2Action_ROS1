@@ -127,6 +127,7 @@ class ScaraController(AbstractController):
         self.gripper_roll_pub.publish(Float64(RESET_GRIPPER_ROLL))
         self.open_gripper()
 
+    # 这个预计会改掉，后续基于传统视觉计算每个物体的yaw
     def _get_gripper_roll_yaw(self):
         """
         获取 gripper_roll_link 在世界坐标系中的 yaw 角（弧度）
@@ -175,6 +176,7 @@ class ScaraController(AbstractController):
         else:
             rospy.loginfo("无法获取 gripper_roll yaw 角")
 
+    # 基于深度相机数据，自适应下降
     def _object_info_callback(self, msg):
         self.object_height = msg.height
 

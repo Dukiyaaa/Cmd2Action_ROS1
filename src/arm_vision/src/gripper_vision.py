@@ -16,6 +16,7 @@ from sensor_msgs.msg import Image, CameraInfo
 from coordinate_transformer import CoordinateTransformer
 from std_msgs.msg import Float32
 from arm_vision.msg import GripperObjectInfo
+import numpy as np
 
 from config import (
     GRIPPER_CENTER_U,
@@ -83,6 +84,58 @@ class GripperVision:
             return None
         depth_value = self.depth_image[v, u]
         return depth_value
+    
+    def _extract_object_mask_from_depth(self, depth):
+        """
+        根据深度图提取桌面上物体的二值 mask
+        返回:
+            mask: uint8 二值图，物体区域为255，其他为0
+            table_depth: 估计得到的桌面深度
+        """
+        if depth is None:
+            return None, None
+
+        depth_work = depth.copy()
+
+        # 1. 过滤非法值
+        invalid = ~((depth_work > 0) & np.isfinite(depth_work))
+        depth_work[invalid] = 0
+
+        valid_pixels = depth_work[depth_work > 0]
+        if valid_pixels.size == 0:
+            return None, None
+
+        # 2. 用较大值估计桌面深度
+        # 找到一个值，让85%的数据小于它，这个值视为桌面深度
+        table_depth = np.percentile(valid_pixels, 85)
+
+        # 3. 比桌面更近一截的区域，认为是物体
+        depth_margin = 0.01  #比桌面至少近 1 cm的区域视为物体
+        mask = np.zeros(depth_work.shape, dtype=np.uint8)
+        mask[(depth_work > 0) & (depth_work < table_depth - depth_margin)] = 255
+
+        return mask, table_depth
+
+    def _get_largest_contour(self, mask, min_area=300):
+        """
+        从二值 mask 中提取最大轮廓
+        返回:
+            contour: 最大轮廓，若没有则返回 None
+        """
+        if mask is None:
+            return None
+
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        if not contours:
+            return None
+
+        largest = max(contours, key=cv2.contourArea)
+
+        if cv2.contourArea(largest) < min_area:
+            return None
+
+        return largest
 
     def process_frame(self):
         # 每次进入该函数时,会获取当前最新图像并处理
@@ -97,6 +150,27 @@ class GripperVision:
         rgb = cv2.rotate(rgb, cv2.ROTATE_180)
         depth = cv2.rotate(depth, cv2.ROTATE_180)
         
+        mask, table_depth = self._extract_object_mask_from_depth(depth)
+        if mask is not None:
+            rospy.loginfo(f"Estimated table depth: {table_depth:.4f}")
+        
+        contour = self._get_largest_contour(mask)
+        rgb_vis = rgb.copy()
+
+        if contour is not None:
+            area = cv2.contourArea(contour)
+            rospy.loginfo(f"Largest contour area: {area:.1f}")
+
+            cv2.drawContours(rgb_vis, [contour], -1, (0, 255, 0), 2)
+        
+        rect = cv2.minAreaRect(contour)
+        (cx, cy), (w, h), angle = rect
+        rospy.loginfo(f"Raw rect angle: {angle:.2f}")
+
+        box = cv2.boxPoints(rect)
+        box = box.astype(int)
+        cv2.drawContours(rgb_vis, [box], 0, (0, 0, 255), 2)
+
         # 将浮点数坐标转换为整数
         u = GRIPPER_CENTER_U
         v = GRIPPER_CENTER_V
@@ -119,8 +193,17 @@ class GripperVision:
 
         self.object_info_pub.publish(msg)
         # 可视化
-        # cv2.imshow('Gripper RGB Image', rgb)
-        # cv2.imshow('Gripper Depth Image', depth)
+        cv2.imshow('Gripper RGB Image', rgb_vis)
+
+        depth_vis = depth.copy()
+        depth_vis[~np.isfinite(depth_vis)] = 0
+        depth_vis = cv2.normalize(depth_vis, None, 0, 255, cv2.NORM_MINMAX)
+        depth_vis = depth_vis.astype(np.uint8)
+        # cv2.imshow('Gripper Depth Image', depth_vis)
+
+        if mask is not None:
+            cv2.imshow('Object Mask From Depth', mask)
+
         cv2.waitKey(1)
 
     def run(self):
