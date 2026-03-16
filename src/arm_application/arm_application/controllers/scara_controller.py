@@ -6,6 +6,7 @@ from controllers.abstract_controller import AbstractController
 from utils.my_kinematics import inverse_kinematics 
 import numpy as np
 from std_msgs.msg import Float32
+from arm_vision.msg import GripperObjectInfo
 
 from config import (
     CONTROLLER_INIT_WAIT,
@@ -74,7 +75,7 @@ class ScaraController(AbstractController):
         self.current_joint_state = None
         rospy.Subscriber('/joint_states', JointState, self._joint_state_callback)
         self.object_height = 0.0
-        rospy.Subscriber('/objects_height', Float32, self._object_height_callback)
+        rospy.Subscriber('/gripper_object_info', GripperObjectInfo, self._object_info_callback)
         # 等待话题建立连接
         rospy.sleep(CONTROLLER_INIT_WAIT)
 
@@ -174,8 +175,8 @@ class ScaraController(AbstractController):
         else:
             rospy.loginfo("无法获取 gripper_roll yaw 角")
 
-    def _object_height_callback(self, msg):
-        self.object_height = msg.data
+    def _object_info_callback(self, msg):
+        self.object_height = msg.height
 
     def gripper_down(self, x: float, y: float, duration: float = GRIPPER_DOWN_DURATION) -> None:
         """

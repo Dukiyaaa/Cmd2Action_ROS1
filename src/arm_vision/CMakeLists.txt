@@ -16,6 +16,7 @@ add_message_files(
   FILES
   DetectedObject.msg
   DetectedObjectPool.msg
+  GripperObjectInfo.msg
 )
 
 ## 生成消息
