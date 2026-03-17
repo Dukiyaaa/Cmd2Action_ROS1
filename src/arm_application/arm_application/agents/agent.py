@@ -237,29 +237,44 @@ class Agent:
             self.box_spawner.delete_entity(obj_name)
 
     def _execute_action_sequence(self, seq: List[Tuple[str, ...]]):
-        for action in seq:
+        for idx, action in enumerate(seq):
             method_name = action[0]
             args = action[1:]
+
             if method_name == ACTION_MOVE_TO:
-                # 解析返回值
                 result = self.controller.move_to(*args)
-                if not result.success:
-                    rospy.logwarn(
-                        f"move_to failed: code={result.error_code}, msg={result.message}"
-                    )
-                    return False
+
             elif method_name == ACTION_OPEN_GRIPPER:
-                self.controller.open_gripper()
+                result = self.controller.open_gripper()
+
             elif method_name == ACTION_CLOSE_GRIPPER:
-                self.controller.close_gripper()
+                result = self.controller.close_gripper()
+
             elif method_name == ACTION_RESET:
-                self.controller.reset()
+                result = self.controller.reset()
+
             elif method_name == ACTION_ALIGN_GRIPPER_ROLL:
-                self.controller.align_gripper_roll()
+                result = self.controller.align_gripper_roll()
+
             elif method_name == ACTION_GRIPPER_DOWN:
-                self.controller.gripper_down(*args)
+                result = self.controller.gripper_down(*args)
+
             else:
                 rospy.logwarn(f"Unknown action: {method_name}")
+                return False
+
+            if not result.success:
+                rospy.logwarn(
+                    f"action failed at step={idx}, action={method_name}, "
+                    f"code={result.error_code}, msg={result.message}"
+                )
+                return False
+
+            rospy.loginfo(
+                f"action succeeded at step={idx}, action={method_name}, msg={result.message}"
+            )
+
+        return True
         
     def _gui_move_to_callback(self, msg):
         x = msg.pose.position.x
