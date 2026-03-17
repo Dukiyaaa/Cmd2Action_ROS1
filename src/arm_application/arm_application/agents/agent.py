@@ -238,46 +238,58 @@ class Agent:
             self.box_spawner.delete_entity(obj_name)
 
     def _execute_action_sequence(self, seq: List[Tuple[str, ...]]) -> ActionResult:
+        max_retry = 1 # 重试次数
+
         for idx, action in enumerate(seq):
             method_name = action[0]
             args = action[1:]
 
-            if method_name == ACTION_MOVE_TO:
-                result = self.controller.move_to(*args)
+            attempt = 0
+            while attempt <= max_retry:
+                if method_name == ACTION_MOVE_TO:
+                    result = self.controller.move_to(*args)
 
-            elif method_name == ACTION_OPEN_GRIPPER:
-                result = self.controller.open_gripper()
+                elif method_name == ACTION_OPEN_GRIPPER:
+                    result = self.controller.open_gripper()
 
-            elif method_name == ACTION_CLOSE_GRIPPER:
-                result = self.controller.close_gripper()
+                elif method_name == ACTION_CLOSE_GRIPPER:
+                    result = self.controller.close_gripper()
 
-            elif method_name == ACTION_RESET:
-                result = self.controller.reset()
+                elif method_name == ACTION_RESET:
+                    result = self.controller.reset()
 
-            elif method_name == ACTION_ALIGN_GRIPPER_ROLL:
-                result = self.controller.align_gripper_roll()
+                elif method_name == ACTION_ALIGN_GRIPPER_ROLL:
+                    result = self.controller.align_gripper_roll()
 
-            elif method_name == ACTION_GRIPPER_DOWN:
-                result = self.controller.gripper_down(*args)
+                elif method_name == ACTION_GRIPPER_DOWN:
+                    result = self.controller.gripper_down(*args)
 
-            else:
-                rospy.logwarn(f"Unknown action: {method_name}")
-                return ActionResult.fail(
-                    "UNKNOWN_ACTION",
-                    f"unknown action: {method_name}",
-                    retryable=False
-                )
+                else:
+                    rospy.logwarn(f"Unknown action: {method_name}")
+                    return ActionResult.fail(
+                        "UNKNOWN_ACTION",
+                        f"unknown action: {method_name}",
+                        retryable=False
+                    )
 
-            if not result.success:
+                if result.success:
+                    rospy.loginfo(
+                        f"action succeeded at step={idx}, action={method_name}, attempt={attempt + 1}"
+                    )
+                    break
+
                 rospy.logwarn(
-                    f"action failed at step={idx}, action={method_name}, "
-                    f"code={result.error_code}, msg={result.message}"
+                    f"action failed at step={idx}, action={method_name}, attempt={attempt + 1}, "
+                    f"code={result.error_code}, msg={result.message}, retryable={result.retryable}"
                 )
-                return result
 
-            rospy.loginfo(
-                f"action succeeded at step={idx}, action={method_name}"
-            )
+                if not result.retryable or attempt >= max_retry:
+                    return result
+
+                attempt += 1
+                rospy.loginfo(
+                    f"retrying action at step={idx}, action={method_name}, next_attempt={attempt + 1}"
+                )
 
         return ActionResult.ok("action sequence finished")
         
