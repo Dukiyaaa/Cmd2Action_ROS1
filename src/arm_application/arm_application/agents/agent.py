@@ -286,46 +286,76 @@ class Agent:
         )
 
         try:
-            self.controller.move_to(x, y, z)
+            result = self.controller.move_to(x, y, z)
+            if not result.success:
+                rospy.logerr(
+                    f"[GUI] move_to failed: code={result.error_code}, msg={result.message}"
+                )
+                return
+
             rospy.loginfo(f"[GUI] move_to executed: ({x:.3f}, {y:.3f}, {z:.3f})")
         except Exception as e:
-            rospy.logerr(f"[GUI] move_to failed: {e}")
+            rospy.logerr(f"[GUI] move_to exception: {e}")
 
     def _gui_reset_callback(self, msg):
         rospy.loginfo("[GUI] reset received")
 
         try:
-            self.controller.reset()
+            result = self.controller.reset()
+            if not result.success:
+                rospy.logerr(
+                    f"[GUI] reset failed: code={result.error_code}, msg={result.message}"
+                )
+                return
+
             rospy.loginfo("[GUI] reset executed")
         except Exception as e:
-            rospy.logerr(f"[GUI] reset failed: {e}")
+            rospy.logerr(f"[GUI] reset exception: {e}")
 
     def _gui_open_gripper_callback(self, msg):
         rospy.loginfo("[GUI] open_gripper received")
 
         try:
-            self.controller.open_gripper()
+            result = self.controller.open_gripper()
+            if not result.success:
+                rospy.logerr(
+                    f"[GUI] open_gripper failed: code={result.error_code}, msg={result.message}"
+                )
+                return
+
             rospy.loginfo("[GUI] open_gripper executed")
         except Exception as e:
-            rospy.logerr(f"[GUI] open_gripper failed: {e}")
+            rospy.logerr(f"[GUI] open_gripper exception: {e}")
 
     def _gui_close_gripper_callback(self, msg):
         rospy.loginfo("[GUI] close_gripper received")
 
         try:
-            self.controller.close_gripper()
+            result = self.controller.close_gripper()
+            if not result.success:
+                rospy.logerr(
+                    f"[GUI] close_gripper failed: code={result.error_code}, msg={result.message}"
+                )
+                return
+
             rospy.loginfo("[GUI] close_gripper executed")
         except Exception as e:
-            rospy.logerr(f"[GUI] close_gripper failed: {e}")
+            rospy.logerr(f"[GUI] close_gripper exception: {e}")
         
     def _gui_align_gripper_roll_callback(self, msg):
         rospy.loginfo("[GUI] align_gripper_roll received")
 
         try:
-            self.controller.align_gripper_roll()
+            result = self.controller.align_gripper_roll()
+            if not result.success:
+                rospy.logerr(
+                    f"[GUI] align_gripper_roll failed: code={result.error_code}, msg={result.message}"
+                )
+                return
+
             rospy.loginfo("[GUI] align_gripper_roll executed")
         except Exception as e:
-            rospy.logerr(f"[GUI] align_gripper_roll failed: {e}")
+            rospy.logerr(f"[GUI] align_gripper_roll exception: {e}")
 
     def _gui_gripper_down_callback(self, msg):
         x = msg.pose.position.x
@@ -334,10 +364,16 @@ class Agent:
         rospy.loginfo(f"[GUI] gripper_down received: x={x:.3f}, y={y:.3f}")
 
         try:
-            self.controller.gripper_down(x, y)
+            result = self.controller.gripper_down(x, y)
+            if not result.success:
+                rospy.logerr(
+                    f"[GUI] gripper_down failed: code={result.error_code}, msg={result.message}"
+                )
+                return
+
             rospy.loginfo(f"[GUI] gripper_down executed: ({x:.3f}, {y:.3f})")
         except Exception as e:
-            rospy.logerr(f"[GUI] gripper_down failed: {e}")
+            rospy.logerr(f"[GUI] gripper_down exception: {e}")
 
     def _gui_pick_callback(self, msg):
         x = msg.pose.position.x
@@ -360,7 +396,11 @@ class Agent:
             action_sequence = self.task_planner.plan(task_spec)
             rospy.loginfo(f"[GUI] pick planned: {action_sequence}")
 
-            self._execute_action_sequence(action_sequence)
+            ok = self._execute_action_sequence(action_sequence)
+            if not ok:
+                rospy.logerr("[GUI] pick failed during action execution")
+                return
+
             rospy.loginfo("[GUI] pick executed")
         except Exception as e:
             rospy.logerr(f"[GUI] pick failed: {e}")
@@ -386,7 +426,11 @@ class Agent:
             action_sequence = self.task_planner.plan(task_spec)
             rospy.loginfo(f"[GUI] place planned: {action_sequence}")
 
-            self._execute_action_sequence(action_sequence)
+            ok = self._execute_action_sequence(action_sequence)
+            if not ok:
+                rospy.logerr("[GUI] place failed during action execution")
+                return
+
             rospy.loginfo("[GUI] place executed")
         except Exception as e:
-            rospy.logerr(f"[GUI] place failed: {e}")
+            rospy.logerr(f"[GUI] place exception: {e}")
