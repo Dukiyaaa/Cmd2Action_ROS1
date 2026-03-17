@@ -241,7 +241,13 @@ class Agent:
             method_name = action[0]
             args = action[1:]
             if method_name == ACTION_MOVE_TO:
-                self.controller.move_to(*args)
+                # 解析返回值
+                result = self.controller.move_to(*args)
+                if not result.success:
+                    rospy.logwarn(
+                        f"move_to failed: code={result.error_code}, msg={result.message}"
+                    )
+                    return False
             elif method_name == ACTION_OPEN_GRIPPER:
                 self.controller.open_gripper()
             elif method_name == ACTION_CLOSE_GRIPPER:

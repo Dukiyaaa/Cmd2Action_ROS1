@@ -7,6 +7,7 @@ from utils.my_kinematics import inverse_kinematics
 import numpy as np
 from std_msgs.msg import Float32
 from arm_vision.msg import GripperObjectInfo
+from utils.action_result import ActionResult
 
 from config import (
     CONTROLLER_INIT_WAIT,
@@ -93,19 +94,43 @@ class ScaraController(AbstractController):
         self.gripper_pub.publish(Float64(d3))
         rospy.sleep(duration)
 
-    def move_to(self, x: float, y: float, z: float, duration: float = MOVE_TO_DURATION) -> bool:
+    def move_to(self, x: float, y: float, z: float, duration: float = MOVE_TO_DURATION) -> ActionResult:
         """
-        实现原子动作:移动到世界坐标,但目前并未考虑从任意坐标的移动
-        """  
-        
-        theta1, theta2, d3, reachable = inverse_kinematics(x, y, z, elbow="down")
-        if not reachable:
-            rospy.logwarn(f"目标点({x:.3f},{y:.3f},{z:.3f})不可达")
-            return False
-        rospy.loginfo(f'move to {x,y,z}')
-        self._move_joints(theta1, theta2, d3, duration)
-    
-        return True
+        实现原子动作:移动到世界坐标
+        """
+        try:
+            theta1, theta2, d3, reachable = inverse_kinematics(x, y, z, elbow="down")
+            if not reachable:
+                rospy.logwarn(f"目标点({x:.3f},{y:.3f},{z:.3f})不可达")
+                return ActionResult.fail(
+                    "IK_FAILED",
+                    f"target unreachable: x={x:.3f}, y={y:.3f}, z={z:.3f}",
+                    retryable=False
+                )
+
+            rospy.loginfo(f"move to {(x, y, z)}")
+            self._move_joints(theta1, theta2, d3, duration)
+
+            return ActionResult.ok(
+                message=f"move_to success: x={x:.3f}, y={y:.3f}, z={z:.3f}",
+                data={
+                    "x": x,
+                    "y": y,
+                    "z": z,
+                    "theta1": theta1,
+                    "theta2": theta2,
+                    "d3": d3,
+                    "duration": duration
+                }
+            )
+
+        except Exception as e:
+            rospy.logerr(f"move_to exception: {e}")
+            return ActionResult.fail(
+                "MOVE_TO_EXCEPTION",
+                f"move_to exception: {e}",
+                retryable=True
+            )
 
     def open_gripper(self, duration: float = OPEN_GRIPPER_DURATION) -> None:
         rospy.loginfo("open gripper")
