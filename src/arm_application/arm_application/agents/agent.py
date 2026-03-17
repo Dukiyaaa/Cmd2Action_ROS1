@@ -15,6 +15,7 @@ from agents.object_detector import ObjectDetector
 from utils.gazebo_box_display import BoxSpawner
 from utils.gazebo_cylinder_display import CylinderSpawner
 from typing import List, Tuple, Any
+from utils.action_result import ActionResult
 
 from config import (
     ACTION_PICK,
@@ -236,7 +237,7 @@ class Agent:
             obj_name = msg.object_name
             self.box_spawner.delete_entity(obj_name)
 
-    def _execute_action_sequence(self, seq: List[Tuple[str, ...]]):
+    def _execute_action_sequence(self, seq: List[Tuple[str, ...]]) -> ActionResult:
         for idx, action in enumerate(seq):
             method_name = action[0]
             args = action[1:]
@@ -261,20 +262,24 @@ class Agent:
 
             else:
                 rospy.logwarn(f"Unknown action: {method_name}")
-                return False
+                return ActionResult.fail(
+                    "UNKNOWN_ACTION",
+                    f"unknown action: {method_name}",
+                    retryable=False
+                )
 
             if not result.success:
                 rospy.logwarn(
                     f"action failed at step={idx}, action={method_name}, "
                     f"code={result.error_code}, msg={result.message}"
                 )
-                return False
+                return result
 
             rospy.loginfo(
-                f"action succeeded at step={idx}, action={method_name}, msg={result.message}"
+                f"action succeeded at step={idx}, action={method_name}"
             )
 
-        return True
+        return ActionResult.ok("action sequence finished")
         
     def _gui_move_to_callback(self, msg):
         x = msg.pose.position.x
@@ -396,9 +401,11 @@ class Agent:
             action_sequence = self.task_planner.plan(task_spec)
             rospy.loginfo(f"[GUI] pick planned: {action_sequence}")
 
-            ok = self._execute_action_sequence(action_sequence)
-            if not ok:
-                rospy.logerr("[GUI] pick failed during action execution")
+            result = self._execute_action_sequence(action_sequence)
+            if not result.success:
+                rospy.logerr(
+                    f"[GUI] pick failed: code={result.error_code}, msg={result.message}"
+                )
                 return
 
             rospy.loginfo("[GUI] pick executed")
@@ -426,9 +433,11 @@ class Agent:
             action_sequence = self.task_planner.plan(task_spec)
             rospy.loginfo(f"[GUI] place planned: {action_sequence}")
 
-            ok = self._execute_action_sequence(action_sequence)
-            if not ok:
-                rospy.logerr("[GUI] place failed during action execution")
+            result = self._execute_action_sequence(action_sequence)
+            if not result.success:
+                rospy.logerr(
+                    f"[GUI] place failed: code={result.error_code}, msg={result.message}"
+                )
                 return
 
             rospy.loginfo("[GUI] place executed")
