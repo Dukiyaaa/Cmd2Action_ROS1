@@ -93,7 +93,7 @@ class Agent:
         )
         rospy.loginfo("Agent 已启动,等待 LLM / GUI 指令...")
         
-    def _llm_callback(self, msg):            
+    def _llm_callback(self, msg):
         if msg.action_type == ACTION_PICK:
             if msg.object_x != 0.0 or msg.object_y != 0.0 or msg.object_z != 0.0:
                 obj_pose = (msg.object_x, msg.object_y, msg.object_z)
@@ -108,23 +108,27 @@ class Agent:
                 rospy.logerr("pick/pick_place 动作未提供 object_class_id 或 object 坐标！")
                 return
 
-            # 调用 Planner 获取动作序列 
             task_spec = {
                 "action": msg.action_type,
                 "object": obj_pose,
                 "target": EMPTY_POSE
             }
             action_sequence = self.task_planner.plan(task_spec)
-            rospy.loginfo(f'{action_sequence}')
+            rospy.loginfo(f"{action_sequence}")
 
-            # 执行动作序列
-            self._execute_action_sequence(action_sequence)
+            result = self._execute_action_sequence(action_sequence)
+            if not result.success:
+                rospy.logerr(
+                    f"LLM pick failed: code={result.error_code}, msg={result.message}"
+                )
+                return
+
+            rospy.loginfo("LLM pick executed")
+
         elif msg.action_type == ACTION_PLACE:
-            # 1. 优先使用显式坐标
             if msg.target_x != 0.0 or msg.target_y != 0.0 or msg.target_z != 0.0:
                 target_pose = (msg.target_x, msg.target_y, msg.target_z)
                 rospy.loginfo(f"使用显式放置坐标: {target_pose}")
-            # 2. 否则用 class_id 查询视觉（如“放到蓝色托盘上”）
             elif msg.target_class_id != INVALID_CLASS_ID:
                 target_pose = self.object_detector.get_best_position(msg.target_class_id)
                 if target_pose is None:
@@ -135,23 +139,27 @@ class Agent:
                 rospy.logerr("place/pick_place 动作未提供 target_class_id 或 target 坐标！")
                 return
 
-            # 调用 Planner 获取动作序列 
             task_spec = {
                 "action": msg.action_type,
                 "object": EMPTY_POSE,
                 "target": target_pose
             }
             action_sequence = self.task_planner.plan(task_spec)
-            rospy.loginfo(f'{action_sequence}')
+            rospy.loginfo(f"{action_sequence}")
 
-            # 执行动作序列
-            self._execute_action_sequence(action_sequence)
+            result = self._execute_action_sequence(action_sequence)
+            if not result.success:
+                rospy.logerr(
+                    f"LLM place failed: code={result.error_code}, msg={result.message}"
+                )
+                return
+
+            rospy.loginfo("LLM place executed")
+
         elif msg.action_type == ACTION_PICK_PLACE:
-            # 1. 优先使用显式坐标
             if msg.object_x != 0.0 or msg.object_y != 0.0 or msg.object_z != 0.0:
                 obj_pose = (msg.object_x, msg.object_y, msg.object_z)
                 rospy.loginfo(f"使用显式抓取坐标: {obj_pose}")
-            # 2. 否则用 class_id 查询视觉（如“抓取红色方块”）
             elif msg.object_class_id != INVALID_CLASS_ID:
                 obj_pose = self.object_detector.get_best_position(msg.object_class_id)
                 if obj_pose is None:
@@ -162,11 +170,9 @@ class Agent:
                 rospy.logerr("pick/pick_place 动作未提供 object_class_id 或 object 坐标！")
                 return
 
-            # 1. 优先使用显式坐标
             if msg.target_x != 0.0 or msg.target_y != 0.0 or msg.target_z != 0.0:
                 target_pose = (msg.target_x, msg.target_y, msg.target_z)
                 rospy.loginfo(f"使用显式放置坐标: {target_pose}")
-            # 2. 否则用 class_id 查询视觉（如“放到蓝色托盘上”）
             elif msg.target_class_id != INVALID_CLASS_ID:
                 target_pose = self.object_detector.get_best_position(msg.target_class_id)
                 if target_pose is None:
@@ -177,32 +183,44 @@ class Agent:
                 rospy.logerr("place/pick_place 动作未提供 target_class_id 或 target 坐标！")
                 return
 
-            # 调用 Planner 获取动作序列 
             task_spec = {
                 "action": msg.action_type,
                 "object": obj_pose,
                 "target": target_pose
             }
             action_sequence = self.task_planner.plan(task_spec)
-            rospy.loginfo(f'{action_sequence}')
+            rospy.loginfo(f"{action_sequence}")
 
-            # 执行动作序列
-            self._execute_action_sequence(action_sequence)
-        elif msg.action_type == ACTION_RESET or msg.action_type == ACTION_OPEN_GRIPPER or msg.action_type == ACTION_CLOSE_GRIPPER:
-            # 调用 Planner 获取动作序列 
+            result = self._execute_action_sequence(action_sequence)
+            if not result.success:
+                rospy.logerr(
+                    f"LLM pick_place failed: code={result.error_code}, msg={result.message}"
+                )
+                return
+
+            rospy.loginfo("LLM pick_place executed")
+
+        elif msg.action_type in (ACTION_RESET, ACTION_OPEN_GRIPPER, ACTION_CLOSE_GRIPPER):
             task_spec = {
                 "action": msg.action_type,
                 "object": EMPTY_POSE,
                 "target": EMPTY_POSE
             }
             action_sequence = self.task_planner.plan(task_spec)
-            rospy.loginfo(f'{action_sequence}')
+            rospy.loginfo(f"{action_sequence}")
 
-            # 执行动作序列
-            self._execute_action_sequence(action_sequence)
+            result = self._execute_action_sequence(action_sequence)
+            if not result.success:
+                rospy.logerr(
+                    f"LLM {msg.action_type} failed: code={result.error_code}, msg={result.message}"
+                )
+                return
+
+            rospy.loginfo(f"LLM {msg.action_type} executed")
+
         elif msg.action_type == ACTION_CREATE:
             if msg.object_class_id == OBJECT_CLASS_BLUE_BOX:
-                box_x, box_y, box_z = msg.object_x,msg.object_y,msg.object_z
+                box_x, box_y, box_z = msg.object_x, msg.object_y, msg.object_z
                 box_name = msg.object_name
                 self.box_spawner.display_test_box(
                     box_pos=(box_x, box_y, box_z),
@@ -210,7 +228,7 @@ class Agent:
                     box_name=box_name
                 )
             elif msg.object_class_id == OBJECT_CLASS_GREEN_CYLINDER:
-                cyl_x, cyl_y, cyl_z = msg.object_x,msg.object_y,msg.object_z
+                cyl_x, cyl_y, cyl_z = msg.object_x, msg.object_y, msg.object_z
                 cyl_name = msg.object_name
                 self.cyl_spawner.display_test_cylinder(
                     cyl_pos=(cyl_x, cyl_y, cyl_z),
@@ -218,7 +236,7 @@ class Agent:
                     cyl_name=cyl_name
                 )
             elif msg.object_class_id == OBJECT_CLASS_RED_BOX:
-                box_x, box_y, box_z = msg.object_x,msg.object_y,msg.object_z
+                box_x, box_y, box_z = msg.object_x, msg.object_y, msg.object_z
                 box_name = msg.object_name
                 self.box_spawner.display_test_box(
                     box_pos=(box_x, box_y, box_z),
@@ -226,13 +244,14 @@ class Agent:
                     box_name=box_name
                 )
             elif msg.object_class_id == OBJECT_CLASS_YELLOW_CYLINDER:
-                cyl_x, cyl_y, cyl_z = msg.object_x,msg.object_y,msg.object_z
+                cyl_x, cyl_y, cyl_z = msg.object_x, msg.object_y, msg.object_z
                 cyl_name = msg.object_name
                 self.cyl_spawner.display_test_cylinder(
                     cyl_pos=(cyl_x, cyl_y, cyl_z),
                     cyl_color=(0.95, 0.85, 0.2, 1.0),
                     cyl_name=cyl_name
                 )
+
         elif msg.action_type == ACTION_DELETE:
             obj_name = msg.object_name
             self.box_spawner.delete_entity(obj_name)
