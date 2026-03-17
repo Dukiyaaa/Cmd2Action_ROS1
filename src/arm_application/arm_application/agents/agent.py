@@ -238,7 +238,19 @@ class Agent:
             self.box_spawner.delete_entity(obj_name)
 
     def _execute_action_sequence(self, seq: List[Tuple[str, ...]]) -> ActionResult:
-        max_retry = 1 # 重试次数
+        max_retry = 1
+
+        def _attempt_recovery(failed_step: int, failed_action: str):
+            rospy.logwarn(
+                f"attempting recovery after failure at step={failed_step}, action={failed_action}"
+            )
+            recovery_result = self.controller.reset()
+            if recovery_result.success:
+                rospy.loginfo("recovery succeeded: reset completed")
+            else:
+                rospy.logerr(
+                    f"recovery failed: code={recovery_result.error_code}, msg={recovery_result.message}"
+                )
 
         for idx, action in enumerate(seq):
             method_name = action[0]
@@ -266,11 +278,13 @@ class Agent:
 
                 else:
                     rospy.logwarn(f"Unknown action: {method_name}")
-                    return ActionResult.fail(
+                    unknown_result = ActionResult.fail(
                         "UNKNOWN_ACTION",
                         f"unknown action: {method_name}",
                         retryable=False
                     )
+                    _attempt_recovery(idx, method_name)
+                    return unknown_result
 
                 if result.success:
                     rospy.loginfo(
@@ -284,6 +298,7 @@ class Agent:
                 )
 
                 if not result.retryable or attempt >= max_retry:
+                    _attempt_recovery(idx, method_name)
                     return result
 
                 attempt += 1
