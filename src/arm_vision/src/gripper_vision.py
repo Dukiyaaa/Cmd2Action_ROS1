@@ -227,7 +227,7 @@ class GripperVision:
         self.object_info_pub.publish(msg)
 
         # 5. 可视化
-        cv2.imshow('Gripper RGB Image', rgb_vis)
+        # cv2.imshow('Gripper RGB Image', rgb_vis)
 
         depth_vis = depth.copy()
         depth_vis[~np.isfinite(depth_vis)] = 0
@@ -235,8 +235,8 @@ class GripperVision:
         depth_vis = depth_vis.astype(np.uint8)
         # cv2.imshow('Gripper Depth Image', depth_vis)
 
-        if mask is not None:
-            cv2.imshow('Object Mask From Depth', mask)
+        # if mask is not None:
+        #     cv2.imshow('Object Mask From Depth', mask)
 
         cv2.waitKey(1)
 
