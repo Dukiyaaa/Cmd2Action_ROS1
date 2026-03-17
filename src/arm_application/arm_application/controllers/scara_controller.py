@@ -108,7 +108,6 @@ class ScaraController(AbstractController):
                     retryable=False
                 )
 
-            rospy.loginfo(f"move to {(x, y, z)}")
             self._move_joints(theta1, theta2, d3, duration)
 
             return ActionResult.ok(
@@ -134,7 +133,6 @@ class ScaraController(AbstractController):
 
     def open_gripper(self, duration: float = OPEN_GRIPPER_DURATION) -> ActionResult:
         try:
-            rospy.loginfo("open gripper")
             f1, f2, f3, f4 = GRIPPER_OPEN_POS
             self.finger1_pub.publish(Float64(f1))
             self.finger2_pub.publish(Float64(f2))
@@ -160,7 +158,6 @@ class ScaraController(AbstractController):
 
     def close_gripper(self, duration: float = CLOSE_GRIPPER_DURATION) -> ActionResult:
         try:
-            rospy.loginfo("close gripper")
             f1, f2, f3, f4 = GRIPPER_CLOSE_POS
             self.finger1_pub.publish(Float64(f1))
             self.finger2_pub.publish(Float64(f2))
@@ -226,7 +223,7 @@ class ScaraController(AbstractController):
             float: yaw 角度值（弧度）,如果未获取到则返回 None
         """
         if self.current_joint_state is None:
-            rospy.logwarn("尚未接收到关节状态信息")
+            rospy.logdebug("尚未接收到关节状态信息")
             return None
         
         try:
@@ -245,10 +242,10 @@ class ScaraController(AbstractController):
             
             return world_yaw
         except ValueError:
-            rospy.logwarn("未找到所需关节")
+            rospy.logdebug("未找到所需关节")
             return None
         except IndexError:
-            rospy.logwarn("关节状态数据不完整")
+            rospy.logdebug("关节状态数据不完整")
             return None
 
     def _get_current_gripper_roll_joint(self):
@@ -256,17 +253,17 @@ class ScaraController(AbstractController):
         获取当前 gripper_roll 关节角（弧度）
         """
         if self.current_joint_state is None:
-            rospy.logwarn("尚未接收到关节状态信息")
+            rospy.logdebug("尚未接收到关节状态信息")
             return None
 
         try:
             gripper_roll_idx = self.current_joint_state.name.index('gripper_roll')
             return self.current_joint_state.position[gripper_roll_idx]
         except ValueError:
-            rospy.logwarn("未找到 gripper_roll 关节")
+            rospy.logdebug("未找到 gripper_roll 关节")
             return None
         except IndexError:
-            rospy.logwarn("gripper_roll 关节状态数据不完整")
+            rospy.logdebug("gripper_roll 关节状态数据不完整")
             return None
     
     def _normalize_align_yaw(self, yaw: float) -> float:
@@ -296,7 +293,7 @@ class ScaraController(AbstractController):
             current_roll_joint = self._get_current_gripper_roll_joint()
 
             if current_yaw is None:
-                rospy.loginfo("无法获取当前夹爪世界 yaw")
+                rospy.logdebug("无法获取当前夹爪世界 yaw")
                 return ActionResult.fail(
                     "CURRENT_YAW_UNAVAILABLE",
                     "current gripper world yaw unavailable",
@@ -304,7 +301,7 @@ class ScaraController(AbstractController):
                 )
 
             if current_roll_joint is None:
-                rospy.loginfo("无法获取当前 gripper_roll 关节角")
+                rospy.logdebug("无法获取当前 gripper_roll 关节角")
                 return ActionResult.fail(
                     "CURRENT_ROLL_JOINT_UNAVAILABLE",
                     "current gripper_roll joint unavailable",
@@ -312,7 +309,7 @@ class ScaraController(AbstractController):
                 )
 
             if not self.object_has_yaw:
-                rospy.loginfo("当前目标没有有效 yaw，跳过夹爪对齐")
+                rospy.logdebug("当前目标没有有效 yaw，跳过夹爪对齐")
                 return ActionResult.fail(
                     "OBJECT_YAW_UNAVAILABLE",
                     "object yaw unavailable",
@@ -328,7 +325,8 @@ class ScaraController(AbstractController):
             # position_controller 需要的是绝对目标角
             new_roll_joint = current_roll_joint + delta_roll
 
-            rospy.loginfo(
+            # 改为debug级别打印，避免log太乱
+            rospy.logdebug(
                 f"current_yaw={current_yaw:.3f} rad ({np.degrees(current_yaw):.1f} deg), "
                 f"current_roll_joint={current_roll_joint:.3f} rad ({np.degrees(current_roll_joint):.1f} deg), "
                 f"raw_target_yaw={raw_target_yaw:.3f} rad ({np.degrees(raw_target_yaw):.1f} deg), "
@@ -338,7 +336,6 @@ class ScaraController(AbstractController):
             )
 
             self.gripper_roll_pub.publish(Float64(new_roll_joint))
-            rospy.loginfo("旋转夹爪以对齐物体方向")
             rospy.sleep(duration)
 
             return ActionResult.ok(
@@ -373,9 +370,8 @@ class ScaraController(AbstractController):
         夹爪自适应下降
         """
         try:
-            rospy.loginfo(f"height: {self.object_height}")
             above = self.object_height + GRIPPER_DOWN_SAFE_OFFSET
-            rospy.loginfo(f"above: {above}")
+            rospy.logdebug(f"gripper_down: object_height={self.object_height:.3f}, target_z={above:.3f}")
 
             move_result = self.move_to(x, y, above)
             if not move_result.success:

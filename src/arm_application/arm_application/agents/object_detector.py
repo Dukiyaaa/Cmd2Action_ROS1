@@ -8,7 +8,7 @@ class ObjectDetector:
         # {class_id (int): [obj_info, obj_info, ...]}
         self.detected_objects = {}
         self.sub = rospy.Subscriber('/detected_objects', DetectedObjectPool, self._callback)
-        rospy.loginfo('[ObjectDetector] 初始化完成,等待视觉数据...')
+        rospy.loginfo('[ObjectDetector] ready')
 
     def _callback(self, msg):
         self.detected_objects.clear()
@@ -49,12 +49,21 @@ class ObjectDetector:
                 return (x - rx) ** 2 + (y - ry) ** 2 + (z - rz) ** 2
 
             best_obj = min(objs, key=distance_sq)
-            rospy.logwarn(f"[ObjectDetector] 最近obj: {best_obj}")
+            rospy.logdebug(
+                f"[ObjectDetector] nearest object selected: "
+                f"class_id={class_id}, position={best_obj['position']}, "
+                f"confidence={best_obj['confidence']:.3f}"
+            )
             return best_obj["position"]
 
         elif strategy == "highest_confidence":
             best_obj = max(objs, key=lambda obj: obj["confidence"])
+            rospy.logdebug(
+                f"[ObjectDetector] highest-confidence object selected: "
+                f"class_id={class_id}, position={best_obj['position']}, "
+                f"confidence={best_obj['confidence']:.3f}"
+            )
             return best_obj["position"]
 
-        rospy.logwarn(f"[ObjectDetector] 未知策略: {strategy}")
+        rospy.logwarn(f"[ObjectDetector] unknown strategy: {strategy}")
         return None

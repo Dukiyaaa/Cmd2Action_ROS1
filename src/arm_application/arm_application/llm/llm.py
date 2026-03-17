@@ -31,12 +31,12 @@ class TongyiQianwenLLM:
         # 仍然沿用现有单条命令消息类型
         self.pub = rospy.Publisher('/llm_commands', LLMCommands, queue_size=10)
         self.sub = rospy.Subscriber('/llm_user_input', String, self._user_input_callback)
-        rospy.loginfo("LLM 节点已启动, 等待用户输入...")
+        rospy.loginfo("[LLM] LLM 节点已启动, 等待用户输入...")
 
     def _user_input_callback(self, msg):
         """处理用户输入话题的回调函数"""
         user_input = msg.data
-        rospy.loginfo(f"收到用户输入: {user_input}")
+        rospy.loginfo(f"[LLM] 收到用户输入: {user_input}")
         self.process_user_input(user_input)
 
     def generate(self, prompt: str, max_tokens: int = 1024, temperature: float = 0.2) -> str:
@@ -66,7 +66,7 @@ class TongyiQianwenLLM:
                 raise Exception(f"API call failed: {response.message}")
 
         except Exception as e:
-            rospy.logerr(f"Error calling Tongyi Qianwen API: {e}")
+            rospy.logerr(f"[LLM] Error calling Tongyi Qianwen API: {e}")
             return ""
 
     def _build_prompt(self, user_input: str) -> str:
@@ -280,16 +280,16 @@ class TongyiQianwenLLM:
         try:
             json_str = self._extract_json_str(response)
             if not json_str:
-                rospy.logerr("无法从LLM响应中提取JSON")
-                rospy.logerr(f"原始响应: {response}")
+                rospy.logerr("[LLM] 无法从LLM响应中提取JSON")
+                rospy.logerr(f"[LLM] 原始响应: {response}")
                 return None
 
             data = json.loads(json_str)
             tasks = self._normalize_tasks(data)
 
             if not tasks:
-                rospy.logerr("LLM输出中未找到有效 tasks")
-                rospy.logerr(f"解析后的数据: {data}")
+                rospy.logerr("[LLM] LLM输出中未找到有效 tasks")
+                rospy.logerr(f"[LLM] 解析后的数据: {data}")
                 return None
 
             published_msgs = []
@@ -298,7 +298,7 @@ class TongyiQianwenLLM:
                 msg = self._task_to_msg(task_dict)
                 self.pub.publish(msg)
                 published_msgs.append(msg)
-                rospy.loginfo(f"发布第 {idx + 1}/{len(tasks)} 条LLM指令: {msg}")
+                rospy.loginfo(f"[LLM] 发布第 {idx + 1}/{len(tasks)} 条LLM指令: {msg}")
 
                 # 给订阅端一点处理时间，避免连续发布太快
                 rospy.sleep(0.1)
@@ -306,6 +306,6 @@ class TongyiQianwenLLM:
             return published_msgs
 
         except Exception as e:
-            rospy.logerr(f"解析LLM响应时出错: {e}")
-            rospy.logerr(f"原始响应: {response}")
+            rospy.logerr(f"[LLM] 解析LLM响应时出错: {e}")
+            rospy.logerr(f"[LLM] 原始响应: {response}")
             return None

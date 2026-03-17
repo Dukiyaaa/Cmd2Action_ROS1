@@ -97,15 +97,15 @@ class Agent:
         if msg.action_type == ACTION_PICK:
             if msg.object_x != 0.0 or msg.object_y != 0.0 or msg.object_z != 0.0:
                 obj_pose = (msg.object_x, msg.object_y, msg.object_z)
-                rospy.loginfo(f"使用显式抓取坐标: {obj_pose}")
+                rospy.loginfo(f"[LLM] pick received with explicit object pose: {obj_pose}")
             elif msg.object_class_id != INVALID_CLASS_ID:
                 obj_pose = self.object_detector.get_best_position(msg.object_class_id)
                 if obj_pose is None:
-                    rospy.logerr(f"视觉未检测到 object_class_id={msg.object_class_id} 的物体！")
+                    rospy.logerr(f"[LLM] pick failed: object_class_id={msg.object_class_id} not detected")
                     return
-                rospy.loginfo(f"从视觉获取抓取位置: {obj_pose}")
+                rospy.loginfo(f"[LLM] pick received with detected object pose: {obj_pose}")
             else:
-                rospy.logerr("pick/pick_place 动作未提供 object_class_id 或 object 坐标！")
+                rospy.logerr("[LLM] pick failed: missing object_class_id and object pose")
                 return
 
             task_spec = {
@@ -113,30 +113,25 @@ class Agent:
                 "object": obj_pose,
                 "target": EMPTY_POSE
             }
-            action_sequence = self.task_planner.plan(task_spec)
-            rospy.loginfo(f"{action_sequence}")
 
-            result = self._execute_action_sequence(action_sequence)
+            result = self._execute_action_sequence(self.task_planner.plan(task_spec))
             if not result.success:
                 rospy.logerr(
-                    f"LLM pick failed: code={result.error_code}, msg={result.message}"
+                    f"[LLM] pick failed: code={result.error_code}, msg={result.message}"
                 )
-                return
-
-            rospy.loginfo("LLM pick executed")
 
         elif msg.action_type == ACTION_PLACE:
             if msg.target_x != 0.0 or msg.target_y != 0.0 or msg.target_z != 0.0:
                 target_pose = (msg.target_x, msg.target_y, msg.target_z)
-                rospy.loginfo(f"使用显式放置坐标: {target_pose}")
+                rospy.loginfo(f"[LLM] place received with explicit target pose: {target_pose}")
             elif msg.target_class_id != INVALID_CLASS_ID:
                 target_pose = self.object_detector.get_best_position(msg.target_class_id)
                 if target_pose is None:
-                    rospy.logerr(f"视觉未检测到 target_class_id={msg.target_class_id} 的放置目标！")
+                    rospy.logerr(f"[LLM] place failed: target_class_id={msg.target_class_id} not detected")
                     return
-                rospy.loginfo(f"从视觉获取放置位置: {target_pose}")
+                rospy.loginfo(f"[LLM] place received with detected target pose: {target_pose}")
             else:
-                rospy.logerr("place/pick_place 动作未提供 target_class_id 或 target 坐标！")
+                rospy.logerr("[LLM] place failed: missing target_class_id and target pose")
                 return
 
             task_spec = {
@@ -144,43 +139,38 @@ class Agent:
                 "object": EMPTY_POSE,
                 "target": target_pose
             }
-            action_sequence = self.task_planner.plan(task_spec)
-            rospy.loginfo(f"{action_sequence}")
 
-            result = self._execute_action_sequence(action_sequence)
+            result = self._execute_action_sequence(self.task_planner.plan(task_spec))
             if not result.success:
                 rospy.logerr(
-                    f"LLM place failed: code={result.error_code}, msg={result.message}"
+                    f"[LLM] place failed: code={result.error_code}, msg={result.message}"
                 )
-                return
-
-            rospy.loginfo("LLM place executed")
 
         elif msg.action_type == ACTION_PICK_PLACE:
             if msg.object_x != 0.0 or msg.object_y != 0.0 or msg.object_z != 0.0:
                 obj_pose = (msg.object_x, msg.object_y, msg.object_z)
-                rospy.loginfo(f"使用显式抓取坐标: {obj_pose}")
+                rospy.loginfo(f"[LLM] pick_place received with explicit object pose: {obj_pose}")
             elif msg.object_class_id != INVALID_CLASS_ID:
                 obj_pose = self.object_detector.get_best_position(msg.object_class_id)
                 if obj_pose is None:
-                    rospy.logerr(f"视觉未检测到 object_class_id={msg.object_class_id} 的物体！")
+                    rospy.logerr(f"[LLM] pick_place failed: object_class_id={msg.object_class_id} not detected")
                     return
-                rospy.loginfo(f"从视觉获取抓取位置: {obj_pose}")
+                rospy.loginfo(f"[LLM] pick_place received with detected object pose: {obj_pose}")
             else:
-                rospy.logerr("pick/pick_place 动作未提供 object_class_id 或 object 坐标！")
+                rospy.logerr("[LLM] pick_place failed: missing object_class_id and object pose")
                 return
 
             if msg.target_x != 0.0 or msg.target_y != 0.0 or msg.target_z != 0.0:
                 target_pose = (msg.target_x, msg.target_y, msg.target_z)
-                rospy.loginfo(f"使用显式放置坐标: {target_pose}")
+                rospy.loginfo(f"[LLM] pick_place received with explicit target pose: {target_pose}")
             elif msg.target_class_id != INVALID_CLASS_ID:
                 target_pose = self.object_detector.get_best_position(msg.target_class_id)
                 if target_pose is None:
-                    rospy.logerr(f"视觉未检测到 target_class_id={msg.target_class_id} 的放置目标！")
+                    rospy.logerr(f"[LLM] pick_place failed: target_class_id={msg.target_class_id} not detected")
                     return
-                rospy.loginfo(f"从视觉获取放置位置: {target_pose}")
+                rospy.loginfo(f"[LLM] pick_place received with detected target pose: {target_pose}")
             else:
-                rospy.logerr("place/pick_place 动作未提供 target_class_id 或 target 坐标！")
+                rospy.logerr("[LLM] pick_place failed: missing target_class_id and target pose")
                 return
 
             task_spec = {
@@ -188,35 +178,27 @@ class Agent:
                 "object": obj_pose,
                 "target": target_pose
             }
-            action_sequence = self.task_planner.plan(task_spec)
-            rospy.loginfo(f"{action_sequence}")
 
-            result = self._execute_action_sequence(action_sequence)
+            result = self._execute_action_sequence(self.task_planner.plan(task_spec))
             if not result.success:
                 rospy.logerr(
-                    f"LLM pick_place failed: code={result.error_code}, msg={result.message}"
+                    f"[LLM] pick_place failed: code={result.error_code}, msg={result.message}"
                 )
-                return
-
-            rospy.loginfo("LLM pick_place executed")
 
         elif msg.action_type in (ACTION_RESET, ACTION_OPEN_GRIPPER, ACTION_CLOSE_GRIPPER):
+            rospy.loginfo(f"[LLM] {msg.action_type} received")
+
             task_spec = {
                 "action": msg.action_type,
                 "object": EMPTY_POSE,
                 "target": EMPTY_POSE
             }
-            action_sequence = self.task_planner.plan(task_spec)
-            rospy.loginfo(f"{action_sequence}")
 
-            result = self._execute_action_sequence(action_sequence)
+            result = self._execute_action_sequence(self.task_planner.plan(task_spec))
             if not result.success:
                 rospy.logerr(
-                    f"LLM {msg.action_type} failed: code={result.error_code}, msg={result.message}"
+                    f"[LLM] {msg.action_type} failed: code={result.error_code}, msg={result.message}"
                 )
-                return
-
-            rospy.loginfo(f"LLM {msg.action_type} executed")
 
         elif msg.action_type == ACTION_CREATE:
             if msg.object_class_id == OBJECT_CLASS_BLUE_BOX:
@@ -296,7 +278,7 @@ class Agent:
                     result = self.controller.gripper_down(*args)
 
                 else:
-                    rospy.logwarn(f"Unknown action: {method_name}")
+                    rospy.logwarn(f"unknown action: {method_name}")
                     unknown_result = ActionResult.fail(
                         "UNKNOWN_ACTION",
                         f"unknown action: {method_name}",
@@ -306,9 +288,6 @@ class Agent:
                     return unknown_result
 
                 if result.success:
-                    rospy.loginfo(
-                        f"action succeeded at step={idx}, action={method_name}, attempt={attempt + 1}"
-                    )
                     break
 
                 rospy.logwarn(
@@ -321,7 +300,7 @@ class Agent:
                     return result
 
                 attempt += 1
-                rospy.loginfo(
+                rospy.logwarn(
                     f"retrying action at step={idx}, action={method_name}, next_attempt={attempt + 1}"
                 )
 
@@ -343,8 +322,6 @@ class Agent:
                     f"[GUI] move_to failed: code={result.error_code}, msg={result.message}"
                 )
                 return
-
-            rospy.loginfo(f"[GUI] move_to executed: ({x:.3f}, {y:.3f}, {z:.3f})")
         except Exception as e:
             rospy.logerr(f"[GUI] move_to exception: {e}")
 
@@ -358,8 +335,6 @@ class Agent:
                     f"[GUI] reset failed: code={result.error_code}, msg={result.message}"
                 )
                 return
-
-            rospy.loginfo("[GUI] reset executed")
         except Exception as e:
             rospy.logerr(f"[GUI] reset exception: {e}")
 
@@ -373,8 +348,6 @@ class Agent:
                     f"[GUI] open_gripper failed: code={result.error_code}, msg={result.message}"
                 )
                 return
-
-            rospy.loginfo("[GUI] open_gripper executed")
         except Exception as e:
             rospy.logerr(f"[GUI] open_gripper exception: {e}")
 
@@ -388,8 +361,6 @@ class Agent:
                     f"[GUI] close_gripper failed: code={result.error_code}, msg={result.message}"
                 )
                 return
-
-            rospy.loginfo("[GUI] close_gripper executed")
         except Exception as e:
             rospy.logerr(f"[GUI] close_gripper exception: {e}")
         
@@ -403,8 +374,6 @@ class Agent:
                     f"[GUI] align_gripper_roll failed: code={result.error_code}, msg={result.message}"
                 )
                 return
-
-            rospy.loginfo("[GUI] align_gripper_roll executed")
         except Exception as e:
             rospy.logerr(f"[GUI] align_gripper_roll exception: {e}")
 
@@ -421,8 +390,6 @@ class Agent:
                     f"[GUI] gripper_down failed: code={result.error_code}, msg={result.message}"
                 )
                 return
-
-            rospy.loginfo(f"[GUI] gripper_down executed: ({x:.3f}, {y:.3f})")
         except Exception as e:
             rospy.logerr(f"[GUI] gripper_down exception: {e}")
 
@@ -444,17 +411,12 @@ class Agent:
                 "target": EMPTY_POSE
             }
 
-            action_sequence = self.task_planner.plan(task_spec)
-            rospy.loginfo(f"[GUI] pick planned: {action_sequence}")
-
-            result = self._execute_action_sequence(action_sequence)
+            result = self._execute_action_sequence(self.task_planner.plan(task_spec))
             if not result.success:
                 rospy.logerr(
                     f"[GUI] pick failed: code={result.error_code}, msg={result.message}"
                 )
                 return
-
-            rospy.loginfo("[GUI] pick executed")
         except Exception as e:
             rospy.logerr(f"[GUI] pick failed: {e}")
 
@@ -476,16 +438,11 @@ class Agent:
                 "target": target_pose
             }
 
-            action_sequence = self.task_planner.plan(task_spec)
-            rospy.loginfo(f"[GUI] place planned: {action_sequence}")
-
-            result = self._execute_action_sequence(action_sequence)
+            result = self._execute_action_sequence(self.task_planner.plan(task_spec))
             if not result.success:
                 rospy.logerr(
                     f"[GUI] place failed: code={result.error_code}, msg={result.message}"
                 )
                 return
-
-            rospy.loginfo("[GUI] place executed")
         except Exception as e:
             rospy.logerr(f"[GUI] place exception: {e}")
