@@ -132,28 +132,89 @@ class ScaraController(AbstractController):
                 retryable=True
             )
 
-    def open_gripper(self, duration: float = OPEN_GRIPPER_DURATION) -> None:
-        rospy.loginfo("open gripper")
-        f1, f2, f3, f4 = GRIPPER_OPEN_POS
-        self.finger1_pub.publish(Float64(f1))
-        self.finger2_pub.publish(Float64(f2))
-        self.finger3_pub.publish(Float64(f3))
-        self.finger4_pub.publish(Float64(f4))
-        rospy.sleep(duration)
+    def open_gripper(self, duration: float = OPEN_GRIPPER_DURATION) -> ActionResult:
+        try:
+            rospy.loginfo("open gripper")
+            f1, f2, f3, f4 = GRIPPER_OPEN_POS
+            self.finger1_pub.publish(Float64(f1))
+            self.finger2_pub.publish(Float64(f2))
+            self.finger3_pub.publish(Float64(f3))
+            self.finger4_pub.publish(Float64(f4))
+            rospy.sleep(duration)
 
-    def close_gripper(self, duration: float = CLOSE_GRIPPER_DURATION) -> None:
-        rospy.loginfo("close gripper")
-        f1, f2, f3, f4 = GRIPPER_CLOSE_POS
-        self.finger1_pub.publish(Float64(f1))
-        self.finger2_pub.publish(Float64(f2))
-        self.finger3_pub.publish(Float64(f3))
-        self.finger4_pub.publish(Float64(f4))
-        rospy.sleep(duration)
+            return ActionResult.ok(
+                message="open_gripper success",
+                data={
+                    "duration": duration,
+                    "finger_positions": [f1, f2, f3, f4]
+                }
+            )
 
-    def reset(self, duration: float = RESET_DURATION) -> None:
-        self._move_joints(RESET_THETA1, RESET_THETA2, RESET_D3, duration)
-        self.gripper_roll_pub.publish(Float64(RESET_GRIPPER_ROLL))
-        self.open_gripper()
+        except Exception as e:
+            rospy.logerr(f"open_gripper exception: {e}")
+            return ActionResult.fail(
+                "OPEN_GRIPPER_EXCEPTION",
+                f"open_gripper exception: {e}",
+                retryable=True
+            )
+
+    def close_gripper(self, duration: float = CLOSE_GRIPPER_DURATION) -> ActionResult:
+        try:
+            rospy.loginfo("close gripper")
+            f1, f2, f3, f4 = GRIPPER_CLOSE_POS
+            self.finger1_pub.publish(Float64(f1))
+            self.finger2_pub.publish(Float64(f2))
+            self.finger3_pub.publish(Float64(f3))
+            self.finger4_pub.publish(Float64(f4))
+            rospy.sleep(duration)
+
+            return ActionResult.ok(
+                message="close_gripper success",
+                data={
+                    "duration": duration,
+                    "finger_positions": [f1, f2, f3, f4]
+                }
+            )
+
+        except Exception as e:
+            rospy.logerr(f"close_gripper exception: {e}")
+            return ActionResult.fail(
+                "CLOSE_GRIPPER_EXCEPTION",
+                f"close_gripper exception: {e}",
+                retryable=True
+            )
+
+    def reset(self, duration: float = RESET_DURATION) -> ActionResult:
+        try:
+            self._move_joints(RESET_THETA1, RESET_THETA2, RESET_D3, duration)
+            self.gripper_roll_pub.publish(Float64(RESET_GRIPPER_ROLL))
+
+            open_result = self.open_gripper()
+            if not open_result.success:
+                return ActionResult.fail(
+                    "RESET_OPEN_GRIPPER_FAILED",
+                    f"reset failed when opening gripper: {open_result.message}",
+                    retryable=open_result.retryable
+                )
+
+            return ActionResult.ok(
+                message="reset success",
+                data={
+                    "theta1": RESET_THETA1,
+                    "theta2": RESET_THETA2,
+                    "d3": RESET_D3,
+                    "gripper_roll": RESET_GRIPPER_ROLL,
+                    "duration": duration
+                }
+            )
+
+        except Exception as e:
+            rospy.logerr(f"reset exception: {e}")
+            return ActionResult.fail(
+                "RESET_EXCEPTION",
+                f"reset exception: {e}",
+                retryable=True
+            )
 
     # 这个预计会改掉，后续基于传统视觉计算每个物体的yaw
     def _get_gripper_roll_yaw(self):
@@ -226,46 +287,80 @@ class ScaraController(AbstractController):
 
         return yaw
 
-    def align_gripper_roll(self, duration: float = ALIGN_GRIPPER_DURATION) -> None:
+    def align_gripper_roll(self, duration: float = ALIGN_GRIPPER_DURATION) -> ActionResult:
         """
         根据夹爪相机估计得到的物体对齐角，旋转夹爪进行对齐
         """
-        current_yaw = self._get_gripper_roll_yaw()
-        current_roll_joint = self._get_current_gripper_roll_joint()
+        try:
+            current_yaw = self._get_gripper_roll_yaw()
+            current_roll_joint = self._get_current_gripper_roll_joint()
 
-        if current_yaw is None:
-            rospy.loginfo("无法获取当前夹爪世界 yaw")
-            return
+            if current_yaw is None:
+                rospy.loginfo("无法获取当前夹爪世界 yaw")
+                return ActionResult.fail(
+                    "CURRENT_YAW_UNAVAILABLE",
+                    "current gripper world yaw unavailable",
+                    retryable=True
+                )
 
-        if current_roll_joint is None:
-            rospy.loginfo("无法获取当前 gripper_roll 关节角")
-            return
+            if current_roll_joint is None:
+                rospy.loginfo("无法获取当前 gripper_roll 关节角")
+                return ActionResult.fail(
+                    "CURRENT_ROLL_JOINT_UNAVAILABLE",
+                    "current gripper_roll joint unavailable",
+                    retryable=True
+                )
 
-        if not self.object_has_yaw:
-            rospy.loginfo("当前目标没有有效 yaw，跳过夹爪对齐")
-            return
+            if not self.object_has_yaw:
+                rospy.loginfo("当前目标没有有效 yaw，跳过夹爪对齐")
+                return ActionResult.fail(
+                    "OBJECT_YAW_UNAVAILABLE",
+                    "object yaw unavailable",
+                    retryable=False
+                )
 
-        raw_target_yaw = self.object_yaw
-        target_yaw = self._normalize_align_yaw(raw_target_yaw)
+            raw_target_yaw = self.object_yaw
+            target_yaw = self._normalize_align_yaw(raw_target_yaw)
 
-        # 这是“需要补偿的量”，不是绝对关节目标
-        delta_roll = -target_yaw
+            # 这是“需要补偿的量”，不是绝对关节目标
+            delta_roll = -target_yaw
 
-        # position_controller 需要的是绝对目标角
-        new_roll_joint = current_roll_joint + delta_roll
+            # position_controller 需要的是绝对目标角
+            new_roll_joint = current_roll_joint + delta_roll
 
-        rospy.loginfo(
-            f"current_yaw={current_yaw:.3f} rad ({np.degrees(current_yaw):.1f} deg), "
-            f"current_roll_joint={current_roll_joint:.3f} rad ({np.degrees(current_roll_joint):.1f} deg), "
-            f"raw_target_yaw={raw_target_yaw:.3f} rad ({np.degrees(raw_target_yaw):.1f} deg), "
-            f"normalized_target_yaw={target_yaw:.3f} rad ({np.degrees(target_yaw):.1f} deg), "
-            f"delta_roll={delta_roll:.3f} rad ({np.degrees(delta_roll):.1f} deg), "
-            f"new_roll_joint={new_roll_joint:.3f} rad ({np.degrees(new_roll_joint):.1f} deg)"
-        )
+            rospy.loginfo(
+                f"current_yaw={current_yaw:.3f} rad ({np.degrees(current_yaw):.1f} deg), "
+                f"current_roll_joint={current_roll_joint:.3f} rad ({np.degrees(current_roll_joint):.1f} deg), "
+                f"raw_target_yaw={raw_target_yaw:.3f} rad ({np.degrees(raw_target_yaw):.1f} deg), "
+                f"normalized_target_yaw={target_yaw:.3f} rad ({np.degrees(target_yaw):.1f} deg), "
+                f"delta_roll={delta_roll:.3f} rad ({np.degrees(delta_roll):.1f} deg), "
+                f"new_roll_joint={new_roll_joint:.3f} rad ({np.degrees(new_roll_joint):.1f} deg)"
+            )
 
-        self.gripper_roll_pub.publish(Float64(new_roll_joint))
-        rospy.loginfo("旋转夹爪以对齐物体方向")
-        rospy.sleep(duration)
+            self.gripper_roll_pub.publish(Float64(new_roll_joint))
+            rospy.loginfo("旋转夹爪以对齐物体方向")
+            rospy.sleep(duration)
+
+            return ActionResult.ok(
+                message="align_gripper_roll success",
+                data={
+                    "current_yaw": current_yaw,
+                    "current_roll_joint": current_roll_joint,
+                    "raw_target_yaw": raw_target_yaw,
+                    "normalized_target_yaw": target_yaw,
+                    "delta_roll": delta_roll,
+                    "new_roll_joint": new_roll_joint,
+                    "duration": duration
+                }
+            )
+
+        except Exception as e:
+            rospy.logerr(f"align_gripper_roll exception: {e}")
+            return ActionResult.fail(
+                "ALIGN_GRIPPER_ROLL_EXCEPTION",
+                f"align_gripper_roll exception: {e}",
+                retryable=True
+            )
 
     # 基于深度相机数据，自适应下降
     def _object_info_callback(self, msg):
@@ -273,12 +368,39 @@ class ScaraController(AbstractController):
         self.object_yaw = msg.yaw
         self.object_has_yaw = msg.has_yaw
 
-    def gripper_down(self, x: float, y: float, duration: float = GRIPPER_DOWN_DURATION) -> None:
+    def gripper_down(self, x: float, y: float, duration: float = GRIPPER_DOWN_DURATION) -> ActionResult:
         """
         夹爪自适应下降
         """
-        rospy.loginfo(f'height:{self.object_height}')
-        above = self.object_height + GRIPPER_DOWN_SAFE_OFFSET
-        rospy.loginfo(f'above:{above}')
-        self.move_to(x, y, above)
+        try:
+            rospy.loginfo(f"height: {self.object_height}")
+            above = self.object_height + GRIPPER_DOWN_SAFE_OFFSET
+            rospy.loginfo(f"above: {above}")
+
+            move_result = self.move_to(x, y, above)
+            if not move_result.success:
+                return ActionResult.fail(
+                    "GRIPPER_DOWN_MOVE_FAILED",
+                    f"gripper_down failed when moving down: {move_result.message}",
+                    retryable=move_result.retryable
+                )
+
+            return ActionResult.ok(
+                message="gripper_down success",
+                data={
+                    "x": x,
+                    "y": y,
+                    "object_height": self.object_height,
+                    "target_z": above,
+                    "duration": duration
+                }
+            )
+
+        except Exception as e:
+            rospy.logerr(f"gripper_down exception: {e}")
+            return ActionResult.fail(
+                "GRIPPER_DOWN_EXCEPTION",
+                f"gripper_down exception: {e}",
+                retryable=True
+            )
 
