@@ -97,3 +97,35 @@ class ObjectDetector:
                 return True
 
         return False
+
+    def exists_any_near_position(self, target_pos, tolerance=0.05):
+        """
+        判断任意类别物体是否仍然存在于目标位置附近
+
+        Args:
+            target_pos (tuple): 目标位置 (x, y, z)
+            tolerance (float): 允许的距离阈值（米）
+
+        Returns:
+            bool: True 表示该位置附近仍存在某个物体
+        """
+
+        if not self.detected_objects:
+            return False
+
+        tx, ty, tz = target_pos
+        tol_sq = tolerance * tolerance
+
+        for class_id, objs in self.detected_objects.items():
+            for obj in objs:
+                x, y, z = obj["position"]
+                dist_sq = (x - tx) ** 2 + (y - ty) ** 2 + (z - tz) ** 2
+
+                if dist_sq < tol_sq:
+                    rospy.loginfo(
+                        f"[ObjectDetector] found object near target: "
+                        f"class_id={class_id}, position={(x, y, z)}, dist_sq={dist_sq}"
+                    )
+                    return True
+
+        return False

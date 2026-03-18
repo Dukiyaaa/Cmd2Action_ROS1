@@ -122,11 +122,14 @@ class Agent:
                 return
 
             # 视觉反馈校验动作是否成功
-            if msg.object_class_id != INVALID_CLASS_ID:
-                verified = self._verify_pick_result(msg.object_class_id, obj_pose)
-                if not verified:
-                    rospy.logerr("[LLM] pick failed: verification failed")
-                    return
+            verified = self._verify_pick_result(
+                original_pose=obj_pose,
+                class_id=None if msg.object_class_id == INVALID_CLASS_ID else msg.object_class_id
+            )
+
+            if not verified:
+                rospy.logerr("[LLM] pick failed: verification failed")
+                return
 
             rospy.loginfo("LLM pick executed")
 
@@ -427,6 +430,15 @@ class Agent:
                     f"[GUI] pick failed: code={result.error_code}, msg={result.message}"
                 )
                 return
+            
+            # 视觉校验pick是否真的成功了
+            verified = self._verify_pick_result(
+                original_pose=obj_pose,
+                class_id=None
+            )
+
+            if not verified:
+                rospy.logerr("[GUI] pick failed: verification failed")
         except Exception as e:
             rospy.logerr(f"[GUI] pick failed: {e}")
 
@@ -457,17 +469,18 @@ class Agent:
         except Exception as e:
             rospy.logerr(f"[GUI] place exception: {e}")
 
-    def _verify_pick_result(self, class_id, original_pose, tolerance=0.05):
-        """
-        pick 结果检查：
-        物体不在原地了,pick成功,返回true
-        反之返回false
-        """
-        still_exists = self.object_detector.exists_near_position(
-            class_id,
-            original_pose,
-            tolerance
-        )
+    def _verify_pick_result(self, original_pose, class_id=None, tolerance=0.05):
+        if class_id is not None:
+            still_exists = self.object_detector.exists_near_position(
+                class_id,
+                original_pose,
+                tolerance
+            )
+        else:
+            still_exists = self.object_detector.exists_any_near_position(
+                original_pose,
+                tolerance
+            )
 
         if still_exists:
             rospy.logwarn("[Agent] pick check: object still at original position")
