@@ -100,7 +100,9 @@ class Agent:
                 x=msg.object_x,
                 y=msg.object_y,
                 z=msg.object_z,
-                class_id=msg.object_class_id
+                class_id=msg.object_class_id,
+                source="LLM",
+                infer_class_from_pose=True
             )
             if obj_pose is None:
                 return
@@ -119,7 +121,9 @@ class Agent:
                 x=msg.target_x,
                 y=msg.target_y,
                 z=msg.target_z,
-                class_id=msg.target_class_id
+                class_id=msg.target_class_id,
+                source="LLM",
+                infer_class_from_pose=False
             )
             if target_pose is None:
                 return
@@ -137,7 +141,9 @@ class Agent:
                 x=msg.object_x,
                 y=msg.object_y,
                 z=msg.object_z,
-                class_id=msg.object_class_id
+                class_id=msg.object_class_id,
+                source="LLM",
+                infer_class_from_pose=True
             )
             if obj_pose is None:
                 return
@@ -147,22 +153,37 @@ class Agent:
                 x=msg.target_x,
                 y=msg.target_y,
                 z=msg.target_z,
-                class_id=msg.target_class_id
+                class_id=msg.target_class_id,
+                source="LLM",
+                infer_class_from_pose=False
             )
             if target_pose is None:
                 return
 
-            task_spec = {
-                "action": msg.action_type,
-                "object": obj_pose,
-                "target": target_pose
-            }
-
-            result = self._execute_action_sequence(self.task_planner.plan(task_spec))
-            if not result.success:
+            pick_result = self._execute_pick(
+                obj_pose=obj_pose,
+                class_id=resolved_class_id,
+                source="LLM"
+            )
+            if not pick_result.success:
                 rospy.logerr(
-                    f"[LLM] pick_place failed: code={result.error_code}, msg={result.message}"
+                    f"[LLM] pick_place failed in pick stage: "
+                    f"code={pick_result.error_code}, msg={pick_result.message}"
                 )
+                return
+
+            place_result = self._execute_place(
+                target_pose=target_pose,
+                source="LLM"
+            )
+            if not place_result.success:
+                rospy.logerr(
+                    f"[LLM] pick_place failed in place stage: "
+                    f"code={place_result.error_code}, msg={place_result.message}"
+                )
+                return
+
+            rospy.loginfo("[LLM] pick_place executed")
 
         elif msg.action_type in (ACTION_RESET, ACTION_OPEN_GRIPPER, ACTION_CLOSE_GRIPPER):
             rospy.loginfo(f"[LLM] {msg.action_type} received")
@@ -332,14 +353,16 @@ class Agent:
         rospy.loginfo(f"[{source}] place executed")
         return ActionResult.ok("place executed successfully")
     
-    def _resolve_pose(self, role, x, y, z, class_id):
+    def _resolve_pose(self, role, x, y, z, class_id, source="Agent", infer_class_from_pose=False):
         """
         统一解析 object / target 的位姿来源
 
         Args:
-            role (str): "pick" 或 "place" 或 "object" / "target"，仅用于日志
+            role (str): 例如 "pick object" / "place target"
             x, y, z (float): 显式坐标
             class_id (int): 类别ID
+            source (str): 调用来源，用于日志，例如 "GUI" / "LLM"
+            infer_class_from_pose (bool): 是否在显式坐标下尝试从视觉结果推断 class_id
 
         Returns:
             tuple:
@@ -349,30 +372,34 @@ class Agent:
         if x != 0.0 or y != 0.0 or z != 0.0:
             pose = (x, y, z)
 
-            inferred_class = self.object_detector.infer_class_id_from_pose(pose)
+            if infer_class_from_pose:
+                inferred_class = self.object_detector.infer_class_id_from_pose(pose)
+                if inferred_class is not None:
+                    rospy.loginfo(
+                        f"[{source}] {role} inferred class_id={inferred_class} from pose {pose}"
+                    )
+                    return pose, inferred_class
 
-            if inferred_class is not None:
                 rospy.loginfo(
-                    f"[LLM] {role} inferred class_id={inferred_class} from pose {pose}"
+                    f"[{source}] {role} received explicit pose but no nearby object detected"
                 )
-                return pose, inferred_class
+                return pose, None
 
             rospy.loginfo(
-                f"[LLM] {role} received explicit pose but no nearby object detected"
+                f"[{source}] {role} received explicit pose: {pose}"
             )
-
             return pose, None
 
         if class_id != INVALID_CLASS_ID:
             pose = self.object_detector.get_best_position(class_id)
             if pose is None:
-                rospy.logerr(f"[LLM] {role} failed: class_id={class_id} not detected")
+                rospy.logerr(f"[{source}] {role} failed: class_id={class_id} not detected")
                 return None, None
 
-            rospy.loginfo(f"[LLM] {role} received with detected pose: {pose}")
+            rospy.loginfo(f"[{source}] {role} resolved by class_id={class_id}, pose={pose}")
             return pose, class_id
 
-        rospy.logerr(f"[LLM] {role} failed: missing class_id and explicit pose")
+        rospy.logerr(f"[{source}] {role} failed: missing class_id and explicit pose")
         return None, None
     
     def _gui_move_to_callback(self, msg):
@@ -473,11 +500,13 @@ class Agent:
 
         try:
             obj_pose, resolved_class_id = self._resolve_pose(
-                role="gui pick object",
+                role="pick object",
                 x=x,
                 y=y,
                 z=z,
-                class_id=INVALID_CLASS_ID
+                class_id=INVALID_CLASS_ID,
+                source="GUI",
+                infer_class_from_pose=True
             )
             if obj_pose is None:
                 return
@@ -499,13 +528,23 @@ class Agent:
         y = msg.pose.position.y
         z = msg.pose.position.z
 
-        target_pose = (x, y, z)
-
         rospy.loginfo(
             f"[GUI] place received: x={x:.3f}, y={y:.3f}, z={z:.3f}, frame={msg.header.frame_id}"
         )
 
         try:
+            target_pose, _ = self._resolve_pose(
+                role="place target",
+                x=x,
+                y=y,
+                z=z,
+                class_id=INVALID_CLASS_ID,
+                source="GUI",
+                infer_class_from_pose=False
+            )
+            if target_pose is None:
+                return
+
             result = self._execute_place(
                 target_pose=target_pose,
                 source="GUI"
