@@ -124,18 +124,13 @@ class Agent:
             if target_pose is None:
                 return
 
-            task_spec = {
-                "action": msg.action_type,
-                "object": EMPTY_POSE,
-                "target": target_pose
-            }
+            result = self._execute_place(
+                target_pose=target_pose,
+                source="LLM"
+            )
 
-            result = self._execute_action_sequence(self.task_planner.plan(task_spec))
             if not result.success:
-                rospy.logerr(
-                    f"[LLM] place failed: code={result.error_code}, msg={result.message}"
-                )
-
+                return
         elif msg.action_type == ACTION_PICK_PLACE:
             obj_pose, resolved_class_id = self._resolve_pose(
                 role="pick_place object",
@@ -146,7 +141,7 @@ class Agent:
             )
             if obj_pose is None:
                 return
-            
+
             target_pose, _ = self._resolve_pose(
                 role="pick_place target",
                 x=msg.target_x,
@@ -156,7 +151,7 @@ class Agent:
             )
             if target_pose is None:
                 return
-            
+
             task_spec = {
                 "action": msg.action_type,
                 "object": obj_pose,
@@ -320,6 +315,23 @@ class Agent:
         rospy.loginfo(f"[{source}] pick executed")
         return ActionResult.ok("pick executed successfully")
     
+    def _execute_place(self, target_pose: Tuple[float, float, float], source: str = "Agent") -> ActionResult:
+        task_spec = {
+            "action": ACTION_PLACE,
+            "object": EMPTY_POSE,
+            "target": target_pose
+        }
+
+        result = self._execute_action_sequence(self.task_planner.plan(task_spec))
+        if not result.success:
+            rospy.logerr(
+                f"[{source}] place failed: code={result.error_code}, msg={result.message}"
+            )
+            return result
+
+        rospy.loginfo(f"[{source}] place executed")
+        return ActionResult.ok("place executed successfully")
+    
     def _resolve_pose(self, role, x, y, z, class_id):
         """
         统一解析 object / target 的位姿来源
@@ -474,18 +486,14 @@ class Agent:
         )
 
         try:
-            task_spec = {
-                "action": ACTION_PLACE,
-                "object": EMPTY_POSE,
-                "target": target_pose
-            }
+            result = self._execute_place(
+                target_pose=target_pose,
+                source="GUI"
+            )
 
-            result = self._execute_action_sequence(self.task_planner.plan(task_spec))
             if not result.success:
-                rospy.logerr(
-                    f"[GUI] place failed: code={result.error_code}, msg={result.message}"
-                )
                 return
+
         except Exception as e:
             rospy.logerr(f"[GUI] place exception: {e}")
 
