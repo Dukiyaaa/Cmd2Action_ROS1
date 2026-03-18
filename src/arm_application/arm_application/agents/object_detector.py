@@ -129,3 +129,46 @@ class ObjectDetector:
                     return True
 
         return False
+
+    # 根据坐标反查可能的id
+    def infer_class_id_from_pose(self, pose, tolerance=0.05):
+        """
+        根据目标坐标，在当前检测结果中查找最近物体的 class_id
+
+        Args:
+            pose (tuple): 目标位置 (x, y, z)
+            tolerance (float): 最大允许匹配距离（米）
+
+        Returns:
+            int | None: 匹配到的 class_id；如果没有足够近的目标则返回 None
+        """
+        if not self.detected_objects:
+            return None
+
+        px, py, pz = pose
+        tol_sq = tolerance * tolerance
+
+        best_dist_sq = float("inf")
+        best_class_id = None
+
+        for class_id, objs in self.detected_objects.items():
+            for obj in objs:
+                ox, oy, oz = obj["position"]
+                dist_sq = (px - ox) ** 2 + (py - oy) ** 2 + (pz - oz) ** 2
+
+                if dist_sq < best_dist_sq:
+                    best_dist_sq = dist_sq
+                    best_class_id = class_id
+
+        if best_dist_sq <= tol_sq:
+            rospy.loginfo(
+                f"[ObjectDetector] inferred class_id={best_class_id} "
+                f"for pose={pose}, dist_sq={best_dist_sq}"
+            )
+            return best_class_id
+
+        rospy.logwarn(
+            f"[ObjectDetector] no nearby object found for pose={pose}, "
+            f"best_dist_sq={best_dist_sq}"
+        )
+        return None

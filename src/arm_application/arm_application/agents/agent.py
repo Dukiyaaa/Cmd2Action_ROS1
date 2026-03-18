@@ -348,7 +348,19 @@ class Agent:
         """
         if x != 0.0 or y != 0.0 or z != 0.0:
             pose = (x, y, z)
-            rospy.loginfo(f"[LLM] {role} received with explicit pose: {pose}")
+
+            inferred_class = self.object_detector.infer_class_id_from_pose(pose)
+
+            if inferred_class is not None:
+                rospy.loginfo(
+                    f"[LLM] {role} inferred class_id={inferred_class} from pose {pose}"
+                )
+                return pose, inferred_class
+
+            rospy.loginfo(
+                f"[LLM] {role} received explicit pose but no nearby object detected"
+            )
+
             return pose, None
 
         if class_id != INVALID_CLASS_ID:
@@ -455,16 +467,24 @@ class Agent:
         y = msg.pose.position.y
         z = msg.pose.position.z
 
-        obj_pose = (x, y, z)
-
         rospy.loginfo(
             f"[GUI] pick received: x={x:.3f}, y={y:.3f}, z={z:.3f}, frame={msg.header.frame_id}"
         )
 
         try:
+            obj_pose, resolved_class_id = self._resolve_pose(
+                role="gui pick object",
+                x=x,
+                y=y,
+                z=z,
+                class_id=INVALID_CLASS_ID
+            )
+            if obj_pose is None:
+                return
+
             result = self._execute_pick(
                 obj_pose=obj_pose,
-                class_id=None,
+                class_id=resolved_class_id,
                 source="GUI"
             )
 
