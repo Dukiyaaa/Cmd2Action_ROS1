@@ -67,3 +67,33 @@ class ObjectDetector:
 
         rospy.logwarn(f"[ObjectDetector] unknown strategy: {strategy}")
         return None
+    
+    def exists_near_position(self, class_id, target_pos, tolerance=0.05):
+        """
+        判断某类物体是否仍然存在于目标位置附近
+
+        Args:
+            class_id (int): 物体类别
+            target_pos (tuple): 目标位置 (x, y, z)
+            tolerance (float): 允许的距离阈值（米）
+
+        Returns:
+            bool: True 表示该位置附近仍存在该类物体
+        """
+
+        objs = self.get_objects(class_id)
+        if not objs:
+            return False
+
+        tx, ty, tz = target_pos
+        tol_sq = tolerance * tolerance
+
+        for obj in objs:
+            x, y, z = obj["position"]
+
+            dist_sq = (x - tx) ** 2 + (y - ty) ** 2 + (z - tz) ** 2
+            if dist_sq < tol_sq:
+                rospy.loginfo(f"x,y,z:{x,y,z},dist_sq:{dist_sq}")
+                return True
+
+        return False

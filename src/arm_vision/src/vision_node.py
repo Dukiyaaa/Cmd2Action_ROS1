@@ -140,49 +140,50 @@ class VisionNode:
 
         if not detections:
             rospy.loginfo_throttle(5.0, "No detections")
-        else:
-            # 转换到世界坐标
-            detected_objects = []
-            for _, score, cls_id, u, v in detections:
-                depth_value = depth[v, u] if u < depth.shape[1] and v < depth.shape[0] else GLOBAL_FIXED_DEPTH
-                depth_value = GLOBAL_FIXED_DEPTH
 
-                point = self.transformer.pixel_to_world_coordinate(u, v, depth_value)
-                if point is None:
-                    continue
+        # 转换到世界坐标
+        detected_objects = []
+        for _, score, cls_id, u, v in detections:
+            depth_value = depth[v, u] if u < depth.shape[1] and v < depth.shape[0] else GLOBAL_FIXED_DEPTH
+            depth_value = GLOBAL_FIXED_DEPTH
 
-                rospy.loginfo(f"Pixel to World coords: {point}")
+            point = self.transformer.pixel_to_world_coordinate(u, v, depth_value)
+            if point is None:
+                continue
 
-                # 坐标线性回归优化器
-                corrected_x, corrected_y = self.correct_detection_value(point[0], point[1])
-                point = (corrected_x, corrected_y, point[2])
+            rospy.loginfo(f"Pixel to World coords: {point}")
 
-                rospy.loginfo(f"Corrected World coords: {point}")
+            # 坐标线性回归优化器
+            corrected_x, corrected_y = self.correct_detection_value(point[0], point[1])
+            point = (corrected_x, corrected_y, point[2])
 
-                obj = DetectedObject()
-                obj.pose = PoseStamped()
-                if self.depth_header:
-                    obj.pose.header = self.depth_header
-                else:
-                    obj.pose.header.stamp = rospy.Time.now()
-                    obj.pose.header.frame_id = 'world'
+            rospy.loginfo(f"Corrected World coords: {point}")
 
-                obj.pose.pose.position.x = point[0]
-                obj.pose.pose.position.y = point[1]
-                obj.pose.pose.position.z = point[2]
-                obj.pose.pose.orientation.w = 1.0
-                obj.class_id = cls_id
-                obj.confidence = score
-                detected_objects.append(obj)
+            obj = DetectedObject()
+            obj.pose = PoseStamped()
+            if self.depth_header:
+                obj.pose.header = self.depth_header
+            else:
+                obj.pose.header.stamp = rospy.Time.now()
+                obj.pose.header.frame_id = 'world'
 
-            if detected_objects:
-                pool_msg = DetectedObjectPool()
-                pool_msg.header.stamp = rospy.Time.now()
-                pool_msg.header.frame_id = 'world'
-                pool_msg.objects = detected_objects
-                self.detected_objects_pub.publish(pool_msg)
+            obj.pose.pose.position.x = point[0]
+            obj.pose.pose.position.y = point[1]
+            obj.pose.pose.position.z = point[2]
+            obj.pose.pose.orientation.w = 1.0
+            obj.class_id = cls_id
+            obj.confidence = score
+            detected_objects.append(obj)
 
-            # 只有检测到目标时才画框；没检测到时 vis_rgb 保持原图
+        # 无论是否检测到目标，都发布一帧结果
+        pool_msg = DetectedObjectPool()
+        pool_msg.header.stamp = rospy.Time.now()
+        pool_msg.header.frame_id = 'world'
+        pool_msg.objects = detected_objects
+        self.detected_objects_pub.publish(pool_msg)
+
+        # 只有检测到目标时才画框；没检测到时 vis_rgb 保持原图
+        if detections:
             vis_rgb = self.visualizer.draw_detections(vis_rgb, detections)
 
         # 发布带检测框（或原始）的可视化图像

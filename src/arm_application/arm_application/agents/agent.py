@@ -119,6 +119,16 @@ class Agent:
                 rospy.logerr(
                     f"[LLM] pick failed: code={result.error_code}, msg={result.message}"
                 )
+                return
+
+            # 视觉反馈校验动作是否成功
+            if msg.object_class_id != INVALID_CLASS_ID:
+                verified = self._verify_pick_result(msg.object_class_id, obj_pose)
+                if not verified:
+                    rospy.logerr("[LLM] pick failed: verification failed")
+                    return
+
+            rospy.loginfo("LLM pick executed")
 
         elif msg.action_type == ACTION_PLACE:
             if msg.target_x != 0.0 or msg.target_y != 0.0 or msg.target_z != 0.0:
@@ -446,3 +456,22 @@ class Agent:
                 return
         except Exception as e:
             rospy.logerr(f"[GUI] place exception: {e}")
+
+    def _verify_pick_result(self, class_id, original_pose, tolerance=0.05):
+        """
+        pick 结果检查：
+        物体不在原地了,pick成功,返回true
+        反之返回false
+        """
+        still_exists = self.object_detector.exists_near_position(
+            class_id,
+            original_pose,
+            tolerance
+        )
+
+        if still_exists:
+            rospy.logwarn("[Agent] pick check: object still at original position")
+            return False
+
+        rospy.logdebug("[Agent] pick check: object not observed at original position")
+        return True
