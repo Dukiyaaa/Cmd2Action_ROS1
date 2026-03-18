@@ -307,34 +307,62 @@ class Agent:
         return ActionResult.ok("action sequence finished")
     
     def _execute_pick(self, obj_pose, class_id=None, source="Agent"):
-        task_spec = {
-            "action": ACTION_PICK,
-            "object": obj_pose,
-            "target": EMPTY_POSE
-        }
+        max_pick_retry = 1
 
-        result = self._execute_action_sequence(self.task_planner.plan(task_spec))
-        if not result.success:
-            rospy.logerr(
-                f"[{source}] pick failed: code={result.error_code}, msg={result.message}"
+        for attempt in range(max_pick_retry + 1):
+            task_spec = {
+                "action": ACTION_PICK,
+                "object": obj_pose,
+                "target": EMPTY_POSE
+            }
+
+            result = self._execute_action_sequence(self.task_planner.plan(task_spec))
+            if not result.success:
+                rospy.logerr(
+                    f"[{source}] pick failed at execution stage: "
+                    f"attempt={attempt + 1}, code={result.error_code}, msg={result.message}"
+                )
+                return result
+
+            verified = self._verify_pick_result(
+                original_pose=obj_pose,
+                class_id=class_id
             )
-            return result
+            if verified:
+                rospy.loginfo(f"[{source}] pick executed")
+                return ActionResult.ok("pick executed successfully")
 
-        verified = self._verify_pick_result(
-            original_pose=obj_pose,
-            class_id=class_id
+            rospy.logwarn(
+                f"[{source}] pick verification failed: attempt={attempt + 1}/{max_pick_retry + 1}"
+            )
+
+            recovery_result = self.controller.reset()
+            if recovery_result.success:
+                rospy.logwarn(
+                    f"[{source}] recovery after pick verification failure: reset completed"
+                )
+            else:
+                rospy.logerr(
+                    f"[{source}] recovery after pick verification failure failed: "
+                    f"code={recovery_result.error_code}, msg={recovery_result.message}"
+                )
+                return ActionResult.fail(
+                    "PICK_VERIFY_FAILED_RECOVERY_FAILED",
+                    "pick verification failed and recovery reset failed",
+                    retryable=False
+                )
+
+            if attempt >= max_pick_retry:
+                break
+
+            rospy.logwarn(f"[{source}] retrying full pick after verification failure")
+
+        rospy.logerr(f"[{source}] pick failed: verification failed after retry")
+        return ActionResult.fail(
+            "PICK_VERIFY_FAILED",
+            "pick verification failed after retry",
+            retryable=False
         )
-        if not verified:
-            verify_result = ActionResult.fail(
-                "PICK_VERIFY_FAILED",
-                "pick verification failed",
-                retryable=False
-            )
-            rospy.logerr(f"[{source}] pick failed: verification failed")
-            return verify_result
-
-        rospy.loginfo(f"[{source}] pick executed")
-        return ActionResult.ok("pick executed successfully")
     
     def _execute_place(self, target_pose: Tuple[float, float, float], source: str = "Agent") -> ActionResult:
         task_spec = {
