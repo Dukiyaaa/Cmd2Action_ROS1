@@ -95,56 +95,33 @@ class Agent:
         
     def _llm_callback(self, msg):
         if msg.action_type == ACTION_PICK:
-            if msg.object_x != 0.0 or msg.object_y != 0.0 or msg.object_z != 0.0:
-                obj_pose = (msg.object_x, msg.object_y, msg.object_z)
-                rospy.loginfo(f"[LLM] pick received with explicit object pose: {obj_pose}")
-            elif msg.object_class_id != INVALID_CLASS_ID:
-                obj_pose = self.object_detector.get_best_position(msg.object_class_id)
-                if obj_pose is None:
-                    rospy.logerr(f"[LLM] pick failed: object_class_id={msg.object_class_id} not detected")
-                    return
-                rospy.loginfo(f"[LLM] pick received with detected object pose: {obj_pose}")
-            else:
-                rospy.logerr("[LLM] pick failed: missing object_class_id and object pose")
+            obj_pose, resolved_class_id = self._resolve_pose(
+                role="pick object",
+                x=msg.object_x,
+                y=msg.object_y,
+                z=msg.object_z,
+                class_id=msg.object_class_id
+            )
+            if obj_pose is None:
                 return
 
-            task_spec = {
-                "action": msg.action_type,
-                "object": obj_pose,
-                "target": EMPTY_POSE
-            }
-
-            result = self._execute_action_sequence(self.task_planner.plan(task_spec))
-            if not result.success:
-                rospy.logerr(
-                    f"[LLM] pick failed: code={result.error_code}, msg={result.message}"
-                )
-                return
-
-            # 视觉反馈校验动作是否成功
-            verified = self._verify_pick_result(
-                original_pose=obj_pose,
-                class_id=None if msg.object_class_id == INVALID_CLASS_ID else msg.object_class_id
+            result = self._execute_pick(
+                obj_pose=obj_pose,
+                class_id=resolved_class_id,
+                source="LLM"
             )
 
-            if not verified:
-                rospy.logerr("[LLM] pick failed: verification failed")
+            if not result.success:
                 return
-
-            rospy.loginfo("LLM pick executed")
-
         elif msg.action_type == ACTION_PLACE:
-            if msg.target_x != 0.0 or msg.target_y != 0.0 or msg.target_z != 0.0:
-                target_pose = (msg.target_x, msg.target_y, msg.target_z)
-                rospy.loginfo(f"[LLM] place received with explicit target pose: {target_pose}")
-            elif msg.target_class_id != INVALID_CLASS_ID:
-                target_pose = self.object_detector.get_best_position(msg.target_class_id)
-                if target_pose is None:
-                    rospy.logerr(f"[LLM] place failed: target_class_id={msg.target_class_id} not detected")
-                    return
-                rospy.loginfo(f"[LLM] place received with detected target pose: {target_pose}")
-            else:
-                rospy.logerr("[LLM] place failed: missing target_class_id and target pose")
+            target_pose, _ = self._resolve_pose(
+                role="place target",
+                x=msg.target_x,
+                y=msg.target_y,
+                z=msg.target_z,
+                class_id=msg.target_class_id
+            )
+            if target_pose is None:
                 return
 
             task_spec = {
@@ -160,32 +137,26 @@ class Agent:
                 )
 
         elif msg.action_type == ACTION_PICK_PLACE:
-            if msg.object_x != 0.0 or msg.object_y != 0.0 or msg.object_z != 0.0:
-                obj_pose = (msg.object_x, msg.object_y, msg.object_z)
-                rospy.loginfo(f"[LLM] pick_place received with explicit object pose: {obj_pose}")
-            elif msg.object_class_id != INVALID_CLASS_ID:
-                obj_pose = self.object_detector.get_best_position(msg.object_class_id)
-                if obj_pose is None:
-                    rospy.logerr(f"[LLM] pick_place failed: object_class_id={msg.object_class_id} not detected")
-                    return
-                rospy.loginfo(f"[LLM] pick_place received with detected object pose: {obj_pose}")
-            else:
-                rospy.logerr("[LLM] pick_place failed: missing object_class_id and object pose")
+            obj_pose, resolved_class_id = self._resolve_pose(
+                role="pick_place object",
+                x=msg.object_x,
+                y=msg.object_y,
+                z=msg.object_z,
+                class_id=msg.object_class_id
+            )
+            if obj_pose is None:
                 return
-
-            if msg.target_x != 0.0 or msg.target_y != 0.0 or msg.target_z != 0.0:
-                target_pose = (msg.target_x, msg.target_y, msg.target_z)
-                rospy.loginfo(f"[LLM] pick_place received with explicit target pose: {target_pose}")
-            elif msg.target_class_id != INVALID_CLASS_ID:
-                target_pose = self.object_detector.get_best_position(msg.target_class_id)
-                if target_pose is None:
-                    rospy.logerr(f"[LLM] pick_place failed: target_class_id={msg.target_class_id} not detected")
-                    return
-                rospy.loginfo(f"[LLM] pick_place received with detected target pose: {target_pose}")
-            else:
-                rospy.logerr("[LLM] pick_place failed: missing target_class_id and target pose")
+            
+            target_pose, _ = self._resolve_pose(
+                role="pick_place target",
+                x=msg.target_x,
+                y=msg.target_y,
+                z=msg.target_z,
+                class_id=msg.target_class_id
+            )
+            if target_pose is None:
                 return
-
+            
             task_spec = {
                 "action": msg.action_type,
                 "object": obj_pose,
@@ -318,7 +289,68 @@ class Agent:
                 )
 
         return ActionResult.ok("action sequence finished")
-        
+    
+    def _execute_pick(self, obj_pose, class_id=None, source="Agent"):
+        task_spec = {
+            "action": ACTION_PICK,
+            "object": obj_pose,
+            "target": EMPTY_POSE
+        }
+
+        result = self._execute_action_sequence(self.task_planner.plan(task_spec))
+        if not result.success:
+            rospy.logerr(
+                f"[{source}] pick failed: code={result.error_code}, msg={result.message}"
+            )
+            return result
+
+        verified = self._verify_pick_result(
+            original_pose=obj_pose,
+            class_id=class_id
+        )
+        if not verified:
+            verify_result = ActionResult.fail(
+                "PICK_VERIFY_FAILED",
+                "pick verification failed",
+                retryable=False
+            )
+            rospy.logerr(f"[{source}] pick failed: verification failed")
+            return verify_result
+
+        rospy.loginfo(f"[{source}] pick executed")
+        return ActionResult.ok("pick executed successfully")
+    
+    def _resolve_pose(self, role, x, y, z, class_id):
+        """
+        统一解析 object / target 的位姿来源
+
+        Args:
+            role (str): "pick" 或 "place" 或 "object" / "target"，仅用于日志
+            x, y, z (float): 显式坐标
+            class_id (int): 类别ID
+
+        Returns:
+            tuple:
+                resolved_pose: (x, y, z) or None
+                resolved_class_id: int or None
+        """
+        if x != 0.0 or y != 0.0 or z != 0.0:
+            pose = (x, y, z)
+            rospy.loginfo(f"[LLM] {role} received with explicit pose: {pose}")
+            return pose, None
+
+        if class_id != INVALID_CLASS_ID:
+            pose = self.object_detector.get_best_position(class_id)
+            if pose is None:
+                rospy.logerr(f"[LLM] {role} failed: class_id={class_id} not detected")
+                return None, None
+
+            rospy.loginfo(f"[LLM] {role} received with detected pose: {pose}")
+            return pose, class_id
+
+        rospy.logerr(f"[LLM] {role} failed: missing class_id and explicit pose")
+        return None, None
+    
     def _gui_move_to_callback(self, msg):
         x = msg.pose.position.x
         y = msg.pose.position.y
@@ -418,27 +450,15 @@ class Agent:
         )
 
         try:
-            task_spec = {
-                "action": ACTION_PICK,
-                "object": obj_pose,
-                "target": EMPTY_POSE
-            }
-
-            result = self._execute_action_sequence(self.task_planner.plan(task_spec))
-            if not result.success:
-                rospy.logerr(
-                    f"[GUI] pick failed: code={result.error_code}, msg={result.message}"
-                )
-                return
-            
-            # 视觉校验pick是否真的成功了
-            verified = self._verify_pick_result(
-                original_pose=obj_pose,
-                class_id=None
+            result = self._execute_pick(
+                obj_pose=obj_pose,
+                class_id=None,
+                source="GUI"
             )
 
-            if not verified:
-                rospy.logerr("[GUI] pick failed: verification failed")
+            if not result.success:
+                return
+
         except Exception as e:
             rospy.logerr(f"[GUI] pick failed: {e}")
 
