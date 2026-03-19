@@ -4,6 +4,7 @@ import re
 import rospy
 import textwrap
 from arm_application.msg import LLMCommands, AgentFeedback
+from arm_vision.msg import DetectedObjectPool
 from std_msgs.msg import String
 from typing import Optional, List, Dict, Any
 import dashscope
@@ -37,6 +38,15 @@ class TongyiQianwenLLM:
             AgentFeedback,
             self._agent_feedback_callback
         )
+
+        # 视觉信息
+        self.detected_objects_sub = rospy.Subscriber(
+            '/detected_objects',
+            DetectedObjectPool,
+            self._detected_objects_callback
+        )
+
+        self.latest_detected_objects = []
 
         self._init_task_state()
         rospy.loginfo("[LLM] LLM 节点已启动, 等待用户输入...")
@@ -101,6 +111,56 @@ class TongyiQianwenLLM:
         self.task_state["status"] = "running"
 
         self.process_user_input(user_input)
+    
+    def _detected_objects_callback(self, msg):
+        objects = []
+
+        for obj in msg.objects:
+            objects.append({
+                "class_id": obj.class_id,
+                "confidence": obj.confidence,
+                "x": obj.pose.pose.position.x,
+                "y": obj.pose.pose.position.y,
+                "z": obj.pose.pose.position.z
+            })
+
+        self.latest_detected_objects = objects
+        # rospy.loginfo(f"[LLM] 已更新视觉缓存，objects_count={len(self.latest_detected_objects)}")
+
+    def _format_visual_context(self) -> str:
+        if not self.latest_detected_objects:
+            return "当前视觉观测：未检测到物体。"
+
+        class_name_map = {
+            0: "blue box",
+            1: "green cylinder",
+            2: "red box",
+            3: "yellow cylinder"
+        }
+
+        grouped = {}
+        for obj in self.latest_detected_objects:
+            class_id = obj["class_id"]
+            if class_id not in grouped:
+                grouped[class_id] = []
+            grouped[class_id].append(obj)
+
+        lines = ["当前视觉观测："]
+        for class_id, objs in grouped.items():
+            class_name = class_name_map.get(class_id, f"class_{class_id}")
+            lines.append(f"- {class_name}: count={len(objs)}")
+
+            for i, obj in enumerate(objs[:3], start=1):
+                lines.append(
+                    f"  - #{i}: "
+                    f"pos=({obj['x']:.3f}, {obj['y']:.3f}, {obj['z']:.3f}), "
+                    f"confidence={obj['confidence']:.3f}"
+                )
+
+            if len(objs) > 3:
+                lines.append(f"  - ... {len(objs) - 3} more")
+
+        return "\n".join(lines)
 
     # 当前系统认为，所有任务必须以reset结尾
     def _is_task_finished(self, feedback: AgentFeedback) -> bool:
@@ -427,6 +487,7 @@ class TongyiQianwenLLM:
         """
         rules = self._build_prompt_rules()
         recent_history = self._format_recent_history()
+        visual_context = self._format_visual_context()
 
         prompt_template = textwrap.dedent("""
             {rules}
@@ -437,13 +498,16 @@ class TongyiQianwenLLM:
             最近执行历史：
             {recent_history}
 
+            当前视觉观测：
+            {visual_context}
+
             上一轮执行反馈：
             - action_type: {action_type}
             - success: {success}
             - error_code: {error_code}
             - message: {message}
 
-            请结合整体目标和最近执行历史，输出下一步动作。
+            请结合整体目标、最近执行历史和当前视觉观测，输出下一步动作。
         """).strip()
 
         return (
@@ -451,6 +515,7 @@ class TongyiQianwenLLM:
             .replace("{rules}", rules)
             .replace("{user_goal}", user_goal)
             .replace("{recent_history}", recent_history)
+            .replace("{visual_context}", visual_context)
             .replace("{action_type}", str(feedback.action_type))
             .replace("{success}", str(feedback.success))
             .replace("{error_code}", str(feedback.error_code))
