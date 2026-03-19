@@ -44,7 +44,8 @@ class TongyiQianwenLLM:
         self.current_session_id = "default"
         self.pending_tasks = []
         self.current_user_goal = ""
-
+        # 最大回合数保护
+        self.max_rounds = 5
         rospy.loginfo("[LLM] LLM 节点已启动, 等待用户输入...")
 
     def _user_input_callback(self, msg):
@@ -69,34 +70,57 @@ class TongyiQianwenLLM:
             f"error={msg.error_code}, message={msg.message}"
         )
 
-        # 只有当前 action 成功时，才继续发布缓存中的下一条任务
-        if msg.success and self.pending_tasks:
-            next_task = self.pending_tasks.pop(0)
+        # 最小任务结束条件：
+        # 如果 reset 已成功执行，则认为当前任务结束
+        if msg.success and msg.action_type == "reset":
+            rospy.loginfo("[LLM] 检测到 reset 已成功执行，当前任务结束，不再继续重规划")
+            self.current_user_goal = ""
+            self.waiting_feedback = False
+            self.pending_tasks = []
+            return
+
+        # 没有目标时，不继续
+        if not self.current_user_goal:
+            rospy.logwarn("[LLM] 当前没有活动中的用户目标，不继续重规划")
+            return
+
+        # 防止无限循环
+        if self.current_step_id >= self.max_rounds:
+            rospy.logwarn("[LLM] 已达到最大回合数，停止继续规划")
+            return
+
+        # 基于反馈重新生成下一步动作
+        replan_prompt = self._build_replan_prompt(self.current_user_goal, msg)
+        response = self.generate(replan_prompt)
+
+        rospy.loginfo(f"[LLM] 重规划原始模型输出: {response}")
+
+        try:
+            json_str = self._extract_json_str(response)
+            if not json_str:
+                rospy.logerr("[LLM] 重规划时无法提取 JSON，停止")
+                return
+
+            data = json.loads(json_str)
+            tasks = self._normalize_tasks(data)
+
+            if not tasks:
+                rospy.logerr("[LLM] 重规划时未解析到有效动作，停止")
+                return
+
+            next_task = tasks[0]
             next_msg = self._task_to_msg(next_task)
 
             self.current_step_id += 1
             self.pub.publish(next_msg)
             self.waiting_feedback = True
 
-            total_steps = self.current_step_id + len(self.pending_tasks)
-            rospy.loginfo(
-                f"[LLM] 发布第 {self.current_step_id}/{total_steps} 条LLM指令: {next_msg}"
-            )
-            rospy.loginfo(
-                f"[LLM] 继续进入等待 feedback 状态，剩余任务数: {len(self.pending_tasks)}"
-            )
-            return
+            rospy.loginfo(f"[LLM] 重规划后发布第 {self.current_step_id} 条LLM指令: {next_msg}")
+            rospy.loginfo("[LLM] 再次进入等待 feedback 状态")
 
-        # 当前 action 成功且没有剩余任务，认为本轮任务流结束
-        if msg.success and not self.pending_tasks:
-            rospy.loginfo("[LLM] 当前任务流已执行完成")
-            return
-
-        # 当前 action 失败，先停止继续发布后续任务
-        if not msg.success:
-            rospy.logwarn("[LLM] 当前 action 执行失败，停止后续任务下发")
-            self.pending_tasks = []
-            return
+        except Exception as e:
+            rospy.logerr(f"[LLM] 重规划解析失败: {e}")
+            rospy.logerr(f"[LLM] 重规划原始响应: {response}")
 
     def generate(self, prompt: str, max_tokens: int = 1024, temperature: float = 0.2) -> str:
         """
@@ -128,20 +152,19 @@ class TongyiQianwenLLM:
             rospy.logerr(f"[LLM] Error calling Tongyi Qianwen API: {e}")
             return ""
 
-    def _build_prompt(self, user_input: str) -> str:
+    # 多轮prompt共用的部分
+    def _build_prompt_rules(self) -> str:
         """
-        构造支持复合任务的提示词
+        返回所有轮次共享的固定规则部分
         """
-        prompt_template = textwrap.dedent("""
-            你是一个机械臂控制指令解析器。
-            你的任务是把用户输入的中文自然语言指令，转换为机械臂可执行的 JSON 任务列表。
+        return textwrap.dedent("""
+            你是一个机械臂控制指令解析器，同时也是一个高层决策模块。
+            你的任务是把输入信息转换为机械臂“下一步可执行的一个 JSON 动作”。
 
             你必须严格按照下面的 JSON 格式输出，且只能输出 JSON，不要输出任何解释、注释、Markdown、前缀或后缀文本。
 
             输出格式必须为：
             {
-            "tasks": [
-                {
                 "action_type": "pick" | "place" | "pick_place" | "reset" | "open_gripper" | "close_gripper" | "create" | "delete",
                 "object_class_id": int,
                 "object_name": "string",
@@ -153,18 +176,15 @@ class TongyiQianwenLLM:
                 "target_x": float,
                 "target_y": float,
                 "target_z": float
-                }
-            ]
             }
 
             总体规则：
             1. 顶层必须是一个 JSON 对象。
-            2. 顶层必须包含 "tasks" 字段。
-            3. "tasks" 必须是一个列表。
-            4. 如果用户只表达了一个动作，则 "tasks" 中只包含 1 个任务。
-            5. 如果用户在一句话中表达了多个顺序动作，则必须拆分为多个任务，并严格按照执行顺序输出到 "tasks" 列表中。
-            6. 所有 JSON 的字段名和 action_type 的取值必须使用英文。
-            7. 除 JSON 以外，不允许输出任何其他内容。
+            2. 顶层不能包含 "tasks" 字段。
+            3. 你每次只能输出一个动作，不能输出动作列表。
+            4. 所有 JSON 的字段名和 action_type 的取值必须使用英文。
+            5. 除 JSON 以外，不允许输出任何其他内容。
+            6. 即使输入中包含多个顺序动作，你这一轮也只能输出“下一步最应该执行的一个动作”。
 
             支持的 action_type：
             - "pick"
@@ -186,18 +206,18 @@ class TongyiQianwenLLM:
             - object_class_id = 2 表示 red box;
             - object_class_id = 3 表示 yellow cylinder;
             - 也可以使用 (object_x, object_y, object_z) 指定显式抓取坐标；
-            - 如果用户明确给出了抓取坐标，则填写 object_x/object_y/object_z，并将 object_class_id 设为 -1；
+            - 如果明确给出了抓取坐标，则填写 object_x/object_y/object_z，并将 object_class_id 设为 -1；
             - target 相关字段全部设为默认值。
 
             二、place
             表示放置动作。
             - 可以使用 target_class_id 指定放置目标类别；
-            - object_class_id = 0 表示 blue box;
-            - object_class_id = 1 表示 green cylinder;
-            - object_class_id = 2 表示 red box;
-            - object_class_id = 3 表示 yellow cylinder;                    
+            - target_class_id = 0 表示 blue box;
+            - target_class_id = 1 表示 green cylinder;
+            - target_class_id = 2 表示 red box;
+            - target_class_id = 3 表示 yellow cylinder;
             - 也可以使用 (target_x, target_y, target_z) 指定显式放置坐标；
-            - 如果用户明确给出了放置坐标，则填写 target_x/target_y/target_z，并将 target_class_id 设为 -1；
+            - 如果明确给出了放置坐标，则填写 target_x/target_y/target_z，并将 target_class_id 设为 -1；
             - object 相关字段全部设为默认值。
 
             三、pick_place
@@ -205,6 +225,8 @@ class TongyiQianwenLLM:
             - 必须同时包含 object 信息和 target 信息；
             - object 侧遵循 pick 的填写规则；
             - target 侧遵循 place 的填写规则。
+            - 只有在“下一步动作本身就是一个完整 pick_place 技能”时才使用该动作。
+            - 如果任务需要更稳妥地逐步执行，也可以优先输出 pick，后续再输出 place。
 
             四、reset
             表示机械臂复位。
@@ -239,36 +261,80 @@ class TongyiQianwenLLM:
             2. 未使用的坐标字段统一填写 0.0
             3. 未使用的名称字段统一填写 ""
 
-            多任务解析规则：
-            1. 如果用户输入中包含“然后”“再”“接着”“最后”“随后”等表示顺序执行的词语，通常应拆分为多个任务。
-            2. 中文中的“然后、再、接着、最后”，以及英文中的“then、and then、after that、finally”，都表示顺序任务。
-            3. 例如：
-            用户输入：将蓝色方块放到黄色圆柱上，然后再复位
-            应输出两个任务：
-            - 第一个任务为 "pick_place"
-            - 第二个任务为 "reset"
-
             语义理解规则：
             1. “抓起方块”“拿起方块”“夹起方块”都应理解为 pick。
-            2. “放下”“放到”“放在”如果同时包含抓取对象和目标对象，优先理解为 pick_place。
-            3. “把方块放到圆柱上”通常应理解为 pick_place，而不是单独的 place。
+            2. “放下”“放到”“放在”如果同时包含抓取对象和目标对象，可以理解为 pick_place；
+            但如果系统采用逐步执行，也可以先输出 pick 作为下一步动作。
+            3. “把方块放到圆柱上”可以理解为最终目标是 pick_place，但当前这一轮仍然只能输出一个下一步动作。
             4. “生成一个蓝色方块”应理解为 create。
             5. “删除名为 box1 的物体”应理解为 delete。
 
+            顺序任务规则（重要）：
+            1. 如果输入中包含“然后”“再”“接着”“最后”“随后”等表示顺序执行的词语，不要一次性输出多个动作。
+            2. 中文中的“然后、再、接着、最后”，以及英文中的“then、and then、after that、finally”，都表示整体目标中包含多个阶段。
+            3. 你当前只需要根据整体目标，选择“下一步最应该执行的一个动作”。
+
+            单步决策要求（最重要）：
+            1. 你只负责当前这一轮的“下一步动作”，不要规划整个任务列表。
+            2. 如果输入表达的是复合任务，优先输出第一步最合理的动作。
+            3. 不要输出 "tasks"。
+            4. 不要把多个动作合并成列表。
+            5. 你的输出必须能被系统直接当作“当前一步命令”执行。
+
             稳健性要求：
             1. 必须输出合法 JSON。
-            2. 不要遗漏 "tasks"。
-            3. 不要把多个动作错误合并成一个任务。
-            4. 如果用户只说一个动作，不要强行拆成多个任务。
-            5. 如果用户表达的是顺序动作，必须按顺序输出多个任务。
+            2. 不要遗漏必要字段。
+            3. 不要输出数组。
+            4. 不要输出多余文本。
+        """).strip()
+
+    def _build_prompt(self, user_input: str) -> str:
+        """
+        构造首轮 prompt（单步决策），使用共享规则底座
+        """
+        rules = self._build_prompt_rules()
+
+        prompt_template = textwrap.dedent("""
+            {rules}
 
             用户输入：
             {user_input}
 
-            请只返回 JSON 对象本身。
-            """).strip()
+            请输出下一步动作。
+        """).strip()
 
-        return prompt_template.replace("{user_input}", user_input)
+        return prompt_template.replace("{rules}", rules).replace("{user_input}", user_input)
+
+    def _build_replan_prompt(self, user_goal: str, feedback: AgentFeedback) -> str:
+        """
+        基于用户目标 + 上一轮执行反馈，生成下一步动作 prompt
+        """
+        rules = self._build_prompt_rules()
+
+        prompt_template = textwrap.dedent("""
+            {rules}
+
+            用户整体目标：
+            {user_goal}
+
+            上一轮执行反馈：
+            - action_type: {action_type}
+            - success: {success}
+            - error_code: {error_code}
+            - message: {message}
+
+            请输出下一步动作。
+        """).strip()
+
+        return (
+            prompt_template
+            .replace("{rules}", rules)
+            .replace("{user_goal}", user_goal)
+            .replace("{action_type}", str(feedback.action_type))
+            .replace("{success}", str(feedback.success))
+            .replace("{error_code}", str(feedback.error_code))
+            .replace("{message}", str(feedback.message))
+        )
 
     def _extract_json_str(self, response: str) -> Optional[str]:
         """
