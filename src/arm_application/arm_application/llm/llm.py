@@ -3,7 +3,7 @@ import os
 import re
 import rospy
 import textwrap
-from arm_application.msg import LLMCommands
+from arm_application.msg import LLMCommands, AgentFeedback
 from std_msgs.msg import String
 from typing import Optional, List, Dict, Any
 import dashscope
@@ -31,13 +31,72 @@ class TongyiQianwenLLM:
         # 仍然沿用现有单条命令消息类型
         self.pub = rospy.Publisher('/llm_commands', LLMCommands, queue_size=10)
         self.sub = rospy.Subscriber('/llm_user_input', String, self._user_input_callback)
+
+        self.agent_feedback_sub = rospy.Subscriber(
+            '/agent_feedback',
+            AgentFeedback,
+            self._agent_feedback_callback
+        )
+
+        self.last_feedback = None
+        self.waiting_feedback = False
+        self.current_step_id = 0
+        self.current_session_id = "default"
+        self.pending_tasks = []
+        self.current_user_goal = ""
+
         rospy.loginfo("[LLM] LLM 节点已启动, 等待用户输入...")
 
     def _user_input_callback(self, msg):
         """处理用户输入话题的回调函数"""
         user_input = msg.data
         rospy.loginfo(f"[LLM] 收到用户输入: {user_input}")
+
+        if self.waiting_feedback:
+            rospy.logwarn("[LLM] 当前仍在等待上一条 action 的反馈，忽略新的用户输入")
+            return
+
+        self.current_user_goal = user_input
         self.process_user_input(user_input)
+
+    def _agent_feedback_callback(self, msg):
+        self.last_feedback = msg
+        self.waiting_feedback = False
+
+        rospy.loginfo(
+            f"[LLM] 收到 Agent feedback: "
+            f"action={msg.action_type}, success={msg.success}, "
+            f"error={msg.error_code}, message={msg.message}"
+        )
+
+        # 只有当前 action 成功时，才继续发布缓存中的下一条任务
+        if msg.success and self.pending_tasks:
+            next_task = self.pending_tasks.pop(0)
+            next_msg = self._task_to_msg(next_task)
+
+            self.current_step_id += 1
+            self.pub.publish(next_msg)
+            self.waiting_feedback = True
+
+            total_steps = self.current_step_id + len(self.pending_tasks)
+            rospy.loginfo(
+                f"[LLM] 发布第 {self.current_step_id}/{total_steps} 条LLM指令: {next_msg}"
+            )
+            rospy.loginfo(
+                f"[LLM] 继续进入等待 feedback 状态，剩余任务数: {len(self.pending_tasks)}"
+            )
+            return
+
+        # 当前 action 成功且没有剩余任务，认为本轮任务流结束
+        if msg.success and not self.pending_tasks:
+            rospy.loginfo("[LLM] 当前任务流已执行完成")
+            return
+
+        # 当前 action 失败，先停止继续发布后续任务
+        if not msg.success:
+            rospy.logwarn("[LLM] 当前 action 执行失败，停止后续任务下发")
+            self.pending_tasks = []
+            return
 
     def generate(self, prompt: str, max_tokens: int = 1024, temperature: float = 0.2) -> str:
         """
@@ -272,7 +331,8 @@ class TongyiQianwenLLM:
 
     def process_user_input(self, user_input: str):
         """
-        处理用户输入并发布一个或多个 LLMCommands 消息
+        处理用户输入，当前阶段只发布第一条 action，
+        不再一次性连续发布全部 tasks。
         """
         prompt = self._build_prompt(user_input)
         response = self.generate(prompt)
@@ -292,18 +352,20 @@ class TongyiQianwenLLM:
                 rospy.logerr(f"[LLM] 解析后的数据: {data}")
                 return None
 
-            published_msgs = []
+            total_tasks = len(tasks)
+            self.pending_tasks = list(tasks)
+            self.current_step_id = 1
 
-            for idx, task_dict in enumerate(tasks):
-                msg = self._task_to_msg(task_dict)
-                self.pub.publish(msg)
-                published_msgs.append(msg)
-                rospy.loginfo(f"[LLM] 发布第 {idx + 1}/{len(tasks)} 条LLM指令: {msg}")
+            first_task = self.pending_tasks.pop(0)
+            msg = self._task_to_msg(first_task)
 
-                # 给订阅端一点处理时间，避免连续发布太快
-                rospy.sleep(0.1)
+            self.pub.publish(msg)
+            self.waiting_feedback = True
 
-            return published_msgs
+            rospy.loginfo(f"[LLM] 发布第 1/{total_tasks} 条LLM指令: {msg}")
+            rospy.loginfo(f"[LLM] 进入等待 feedback 状态，剩余任务数: {len(self.pending_tasks)}")
+
+            return [msg]
 
         except Exception as e:
             rospy.logerr(f"[LLM] 解析LLM响应时出错: {e}")
