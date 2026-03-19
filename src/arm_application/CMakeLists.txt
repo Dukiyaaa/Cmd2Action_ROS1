@@ -12,6 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
 add_message_files(
   FILES
   LLMCommands.msg
+  AgentFeedback.msg
 )
 
 # 必须在 generate_messages() 之前调用

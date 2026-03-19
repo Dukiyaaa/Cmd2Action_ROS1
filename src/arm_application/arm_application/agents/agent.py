@@ -10,7 +10,7 @@ from planners.task_planner import TaskPlanner
 from controllers.scara_controller import ScaraController
 from arm_vision.msg import DetectedObjectPool
 from geometry_msgs.msg import PoseStamped
-from arm_application.msg import LLMCommands
+from arm_application.msg import LLMCommands,AgentFeedback
 from agents.object_detector import ObjectDetector
 from utils.gazebo_box_display import BoxSpawner
 from utils.gazebo_cylinder_display import CylinderSpawner
@@ -49,6 +49,8 @@ class Agent:
 
         # 订阅 LLM 指令
         self.sub = rospy.Subscriber('/llm_commands', LLMCommands, self._llm_callback)
+        # 反馈
+        self.feedback_pub = rospy.Publisher('/agent_feedback', AgentFeedback, queue_size=10)
 
         # 订阅 GUI 手动控制指令
         self.gui_move_to_sub = rospy.Subscriber(
@@ -95,6 +97,8 @@ class Agent:
         
     def _llm_callback(self, msg):
         if msg.action_type == ACTION_PICK:
+            action_type = ACTION_PICK
+            # 1. 解析坐标,其中包含显式坐标找id，显式id找坐标
             obj_pose, resolved_class_id = self._resolve_pose(
                 role="pick object",
                 x=msg.object_x,
@@ -104,19 +108,52 @@ class Agent:
                 source="LLM",
                 infer_class_from_pose=True
             )
+
             if obj_pose is None:
+                self._publish_feedback(
+                    action_type=action_type,
+                    success=False,
+                    error_code="RESOLVE_POSE_FAILED",
+                    message="failed to resolve object pose",
+                    retry_exhausted=True
+                )
                 return
 
+            # 2. 执行pick，其中包含vertify、pick重试、原子动作重试
             result = self._execute_pick(
                 obj_pose=obj_pose,
                 class_id=resolved_class_id,
                 source="LLM"
             )
 
-            if not result.success:
-                return
+            # 3. 向llm发送feedback
+            if result.success:
+                self._publish_feedback(
+                    action_type=action_type,
+                    success=True,
+                    error_code="SUCCESS",
+                    message="pick success",
+                    retry_exhausted=False,
+                    object_class_id=resolved_class_id if resolved_class_id is not None else -1,
+                    object_pose=obj_pose
+                )
+            else:
+                self._publish_feedback(
+                    action_type=action_type,
+                    success=False,
+                    error_code=result.error_code,
+                    message=result.message,
+                    retry_exhausted=not result.retryable,
+                    object_class_id=resolved_class_id if resolved_class_id is not None else -1,
+                    object_pose=obj_pose
+                )
+
+            return
         elif msg.action_type == ACTION_PLACE:
-            target_pose, _ = self._resolve_pose(
+            action_type = ACTION_PLACE
+
+            # 1. 解析坐标，place不通过显式坐标求id
+            target_pose, resolved_target_class_id = self._resolve_pose(
                 role="place target",
                 x=msg.target_x,
                 y=msg.target_y,
@@ -125,16 +162,45 @@ class Agent:
                 source="LLM",
                 infer_class_from_pose=False
             )
+
             if target_pose is None:
+                self._publish_feedback(
+                    action_type=action_type,
+                    success=False,
+                    error_code="RESOLVE_TARGET_POSE_FAILED",
+                    message="failed to resolve place target pose",
+                    retry_exhausted=True
+                )
                 return
 
+            # 2. 执行place
             result = self._execute_place(
                 target_pose=target_pose,
                 source="LLM"
             )
 
-            if not result.success:
-                return
+            if result.success:
+                self._publish_feedback(
+                    action_type=action_type,
+                    success=True,
+                    error_code="SUCCESS",
+                    message="place success",
+                    retry_exhausted=False,
+                    object_class_id=resolved_target_class_id if resolved_target_class_id is not None else -1,
+                    object_pose=target_pose
+                )
+            else:
+                self._publish_feedback(
+                    action_type=action_type,
+                    success=False,
+                    error_code=result.error_code,
+                    message=result.message,
+                    retry_exhausted=not result.retryable,
+                    object_class_id=resolved_target_class_id if resolved_target_class_id is not None else -1,
+                    object_pose=target_pose
+                )
+
+            return
         elif msg.action_type == ACTION_PICK_PLACE:
             obj_pose, resolved_class_id = self._resolve_pose(
                 role="pick_place object",
@@ -184,8 +250,38 @@ class Agent:
                 return
 
             rospy.loginfo("[LLM] pick_place executed")
+        elif msg.action_type == ACTION_RESET:
+            # reset需要feedback
+            action_type = ACTION_RESET
+            rospy.loginfo(f"[LLM] {action_type} received")
 
-        elif msg.action_type in (ACTION_RESET, ACTION_OPEN_GRIPPER, ACTION_CLOSE_GRIPPER):
+            task_spec = {
+                "action": ACTION_RESET,
+                "object": EMPTY_POSE,
+                "target": EMPTY_POSE
+            }
+
+            result = self._execute_action_sequence(self.task_planner.plan(task_spec))
+
+            if result.success:
+                self._publish_feedback(
+                    action_type=action_type,
+                    success=True,
+                    error_code="SUCCESS",
+                    message="reset success",
+                    retry_exhausted=False
+                )
+            else:
+                self._publish_feedback(
+                    action_type=action_type,
+                    success=False,
+                    error_code=result.error_code,
+                    message=result.message,
+                    retry_exhausted=not result.retryable
+                )
+
+            return
+        elif msg.action_type in (ACTION_OPEN_GRIPPER, ACTION_CLOSE_GRIPPER):
             rospy.loginfo(f"[LLM] {msg.action_type} received")
 
             task_spec = {
@@ -603,3 +699,52 @@ class Agent:
 
         rospy.logdebug("[Agent] pick check: object not observed at original position")
         return True
+
+    # 封装反馈发送函数
+    def _publish_feedback(
+        self,
+        action_type,
+        success,
+        error_code="SUCCESS",
+        message="",
+        retry_exhausted=True,
+        object_name="",
+        object_class_id=-1,
+        object_pose=None,
+        session_id="default",
+        step_id=0,
+        done=False
+    ):
+        feedback = AgentFeedback()
+
+        feedback.session_id = session_id
+        feedback.step_id = step_id
+
+        feedback.action_type = action_type
+
+        feedback.success = success
+        feedback.error_code = error_code
+        feedback.message = message
+
+        feedback.retry_exhausted = retry_exhausted
+
+        feedback.object_name = object_name
+        feedback.object_class_id = object_class_id
+
+        if object_pose is not None:
+            feedback.object_x = object_pose[0]
+            feedback.object_y = object_pose[1]
+            feedback.object_z = object_pose[2]
+        else:
+            feedback.object_x = 0.0
+            feedback.object_y = 0.0
+            feedback.object_z = 0.0
+
+        feedback.done = done
+
+        self.feedback_pub.publish(feedback)
+
+        rospy.loginfo(
+            f"[AgentFeedback] action={action_type}, success={success}, "
+            f"error={error_code}, msg={message}"
+        )
