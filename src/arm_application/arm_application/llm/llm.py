@@ -58,7 +58,7 @@ class TongyiQianwenLLM:
             "user_goal": "",
             "status": "idle",   # idle / running / waiting_feedback / finished / failed
             "step_id": 0,
-            "max_rounds": 5,
+            "max_rounds": 10,
             "history": [],
             "last_feedback": None,
         }

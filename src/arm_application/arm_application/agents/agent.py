@@ -35,6 +35,9 @@ from config import (
     OBJECT_CLASS_GREEN_CYLINDER,
     OBJECT_CLASS_RED_BOX,
     OBJECT_CLASS_YELLOW_CYLINDER,
+    OBSERVE_RECOVERY_X,
+    OBSERVE_RECOVERY_Y,
+    OBSERVE_RECOVERY_Z,
 )
 
 class Agent:
@@ -477,6 +480,32 @@ class Agent:
         rospy.loginfo(f"[{source}] place executed")
         return ActionResult.ok("place executed successfully")
     
+    def _move_to_observe_recovery_pose(self, source="Agent") -> ActionResult:
+        """
+        移动到固定恢复观测位。
+        只移动机械臂，不改变夹爪状态。
+        """
+        rospy.logwarn(
+            f"[{source}] moving to observe recovery pose: "
+            f"({OBSERVE_RECOVERY_X:.3f}, {OBSERVE_RECOVERY_Y:.3f}, {OBSERVE_RECOVERY_Z:.3f})"
+        )
+
+        result = self.controller.move_to(
+            OBSERVE_RECOVERY_X,
+            OBSERVE_RECOVERY_Y,
+            OBSERVE_RECOVERY_Z
+        )
+
+        if result.success:
+            rospy.loginfo(f"[{source}] observe recovery pose reached")
+        else:
+            rospy.logerr(
+                f"[{source}] failed to move to observe recovery pose: "
+                f"code={result.error_code}, msg={result.message}"
+            )
+
+        return result
+    
     def _resolve_pose(self, role, x, y, z, class_id, source="Agent", infer_class_from_pose=False):
         """
         统一解析 object / target 的位姿来源
@@ -515,13 +544,40 @@ class Agent:
             return pose, None
 
         if class_id != INVALID_CLASS_ID:
+            # 第一次正常解析
             pose = self.object_detector.get_best_position(class_id)
-            if pose is None:
-                rospy.logerr(f"[{source}] {role} failed: class_id={class_id} not detected")
+            if pose is not None:
+                rospy.loginfo(f"[{source}] {role} resolved by class_id={class_id}, pose={pose}")
+                return pose, class_id
+
+            rospy.logwarn(
+                f"[{source}] {role} initial resolve failed: "
+                f"class_id={class_id} not detected, trying observe recovery"
+            )
+
+            # 恢复观测位
+            recovery_result = self._move_to_observe_recovery_pose(source=source)
+            if not recovery_result.success:
+                rospy.logerr(
+                    f"[{source}] {role} failed: observe recovery move failed, "
+                    f"code={recovery_result.error_code}, msg={recovery_result.message}"
+                )
                 return None, None
 
-            rospy.loginfo(f"[{source}] {role} resolved by class_id={class_id}, pose={pose}")
-            return pose, class_id
+            # 第二次解析
+            pose = self.object_detector.get_best_position(class_id)
+            if pose is not None:
+                rospy.loginfo(
+                    f"[{source}] {role} resolved after observe recovery: "
+                    f"class_id={class_id}, pose={pose}"
+                )
+                return pose, class_id
+
+            rospy.logerr(
+                f"[{source}] {role} failed after observe recovery: "
+                f"class_id={class_id} still not detected"
+            )
+            return None, None
 
         rospy.logerr(f"[{source}] {role} failed: missing class_id and explicit pose")
         return None, None
