@@ -38,31 +38,139 @@ class TongyiQianwenLLM:
             self._agent_feedback_callback
         )
 
-        self.last_feedback = None
-        self.waiting_feedback = False
-        self.current_step_id = 0
-        self.current_session_id = "default"
-        self.pending_tasks = []
-        self.current_user_goal = ""
-        # 最大回合数保护
-        self.max_rounds = 5
+        self._init_task_state()
         rospy.loginfo("[LLM] LLM 节点已启动, 等待用户输入...")
+    
+    # 状态机管理
+    def _init_task_state(self):
+        self.task_state = {
+            "session_id": "",
+            "user_goal": "",
+            "status": "idle",   # idle / running / waiting_feedback / finished / failed
+            "step_id": 0,
+            "max_rounds": 5,
+            "history": [],
+            "last_feedback": None,
+        }
 
+    def _reset_task_state(self):
+        self._init_task_state()
+    
+    def _record_action(self, command_dict: Dict[str, Any]):
+        self.task_state["history"].append({
+            "step_id": self.task_state["step_id"],
+            "type": "action",
+            "action_type": command_dict.get("action_type", "unknown"),
+            "command": command_dict
+        })
+
+    def _record_feedback(self, feedback: AgentFeedback):
+        feedback_record = {
+            "step_id": self.task_state["step_id"],
+            "type": "feedback",
+            "action_type": feedback.action_type,
+            "success": feedback.success,
+            "error_code": feedback.error_code,
+            "message": feedback.message,
+            "retry_exhausted": feedback.retry_exhausted,
+            "object_name": feedback.object_name,
+            "object_class_id": feedback.object_class_id,
+            "object_pose": (
+                feedback.object_x,
+                feedback.object_y,
+                feedback.object_z
+            ),
+            "done": feedback.done
+        }
+
+        self.task_state["last_feedback"] = feedback_record
+        self.task_state["history"].append(feedback_record)
+        
     def _user_input_callback(self, msg):
         """处理用户输入话题的回调函数"""
         user_input = msg.data
         rospy.loginfo(f"[LLM] 收到用户输入: {user_input}")
 
-        if self.waiting_feedback:
+        if self.task_state["status"] == "waiting_feedback":
             rospy.logwarn("[LLM] 当前仍在等待上一条 action 的反馈，忽略新的用户输入")
             return
 
-        self.current_user_goal = user_input
+        # 开启一个新任务前，先重置任务状态
+        self._reset_task_state()
+        self.task_state["user_goal"] = user_input
+        self.task_state["status"] = "running"
+
         self.process_user_input(user_input)
 
+    # 当前系统认为，所有任务必须以reset结尾
+    def _is_task_finished(self, feedback: AgentFeedback) -> bool:
+        if not feedback.success:
+            return False
+
+        if feedback.action_type == "reset":
+            return True
+
+        return False
+
+    def _should_stop_after_failure(self, feedback: AgentFeedback) -> bool:
+        # agent 已经判断没法再重试了，先停止
+        if feedback.retry_exhausted:
+            return True
+
+        # 一些明显不适合继续让 LLM 硬规划的错误，先停掉
+        fatal_errors = {
+            "RESOLVE_POSE_FAILED",
+            "RESOLVE_TARGET_POSE_FAILED",
+        }
+
+        if feedback.error_code in fatal_errors:
+            return True
+
+        return False
+
+    def _format_recent_history(self, max_items: int = 4) -> str:
+        history = self.task_state.get("history", [])
+        if not history:
+            return "无"
+
+        recent = history[-max_items:]
+        lines = []
+
+        for item in recent:
+            if item["type"] == "action":
+                cmd = item["command"]
+                lines.append(
+                    f"- step {item['step_id']} action: "
+                    f"action_type={item['action_type']}, "
+                    f"object_class_id={cmd.get('object_class_id', -1)}, "
+                    f"object_name={cmd.get('object_name', '')}, "
+                    f"object_xyz=({cmd.get('object_x', 0.0)}, {cmd.get('object_y', 0.0)}, {cmd.get('object_z', 0.0)}), "
+                    f"target_class_id={cmd.get('target_class_id', -1)}, "
+                    f"target_name={cmd.get('target_name', '')}, "
+                    f"target_xyz=({cmd.get('target_x', 0.0)}, {cmd.get('target_y', 0.0)}, {cmd.get('target_z', 0.0)})"
+                )
+            elif item["type"] == "feedback":
+                pose = item.get("object_pose", (0.0, 0.0, 0.0))
+                lines.append(
+                    f"- step {item['step_id']} feedback: "
+                    f"action_type={item['action_type']}, "
+                    f"success={item['success']}, "
+                    f"error_code={item['error_code']}, "
+                    f"message={item['message']}, "
+                    f"retry_exhausted={item['retry_exhausted']}, "
+                    f"object_class_id={item['object_class_id']}, "
+                    f"object_name={item['object_name']}, "
+                    f"object_pose=({pose[0]}, {pose[1]}, {pose[2]}), "
+                    f"done={item['done']}"
+                )
+
+        return "\n".join(lines)
+
     def _agent_feedback_callback(self, msg):
-        self.last_feedback = msg
-        self.waiting_feedback = False
+        self._record_feedback(msg)
+
+        if self.task_state["status"] == "waiting_feedback":
+            self.task_state["status"] = "running"
 
         rospy.loginfo(
             f"[LLM] 收到 Agent feedback: "
@@ -71,26 +179,31 @@ class TongyiQianwenLLM:
         )
 
         # 最小任务结束条件：
-        # 如果 reset 已成功执行，则认为当前任务结束
-        if msg.success and msg.action_type == "reset":
-            rospy.loginfo("[LLM] 检测到 reset 已成功执行，当前任务结束，不再继续重规划")
-            self.current_user_goal = ""
-            self.waiting_feedback = False
-            self.pending_tasks = []
+        if self._is_task_finished(msg):
+            rospy.loginfo("[LLM] 当前任务已完成，结束任务")
+            self.task_state["status"] = "finished"
             return
 
         # 没有目标时，不继续
-        if not self.current_user_goal:
+        if not self.task_state["user_goal"]:
             rospy.logwarn("[LLM] 当前没有活动中的用户目标，不继续重规划")
             return
 
         # 防止无限循环
-        if self.current_step_id >= self.max_rounds:
+        if self.task_state["step_id"] >= self.task_state["max_rounds"]:
             rospy.logwarn("[LLM] 已达到最大回合数，停止继续规划")
+            self.task_state["status"] = "failed"
+            return
+        
+        if not msg.success and self._should_stop_after_failure(msg):
+            rospy.logwarn(
+                f"[LLM] 当前动作失败且不再继续重规划: error_code={msg.error_code}, message={msg.message}"
+            )
+            self.task_state["status"] = "failed"
             return
 
         # 基于反馈重新生成下一步动作
-        replan_prompt = self._build_replan_prompt(self.current_user_goal, msg)
+        replan_prompt = self._build_replan_prompt(self.task_state["user_goal"], msg)
         response = self.generate(replan_prompt)
 
         rospy.loginfo(f"[LLM] 重规划原始模型输出: {response}")
@@ -111,11 +224,12 @@ class TongyiQianwenLLM:
             next_task = tasks[0]
             next_msg = self._task_to_msg(next_task)
 
-            self.current_step_id += 1
+            self.task_state["step_id"] += 1
+            self._record_action(next_task)
             self.pub.publish(next_msg)
-            self.waiting_feedback = True
+            self.task_state["status"] = "waiting_feedback"
 
-            rospy.loginfo(f"[LLM] 重规划后发布第 {self.current_step_id} 条LLM指令: {next_msg}")
+            rospy.loginfo(f"[LLM] 重规划后发布第 {self.task_state['step_id']} 条LLM指令: {next_msg}")
             rospy.loginfo("[LLM] 再次进入等待 feedback 状态")
 
         except Exception as e:
@@ -221,12 +335,13 @@ class TongyiQianwenLLM:
             - object 相关字段全部设为默认值。
 
             三、pick_place
-            表示先抓取再放置。
+            表示先抓取再放置的复合技能。
             - 必须同时包含 object 信息和 target 信息；
             - object 侧遵循 pick 的填写规则；
             - target 侧遵循 place 的填写规则。
-            - 只有在“下一步动作本身就是一个完整 pick_place 技能”时才使用该动作。
-            - 如果任务需要更稳妥地逐步执行，也可以优先输出 pick，后续再输出 place。
+            - 但在当前系统中，默认不要优先输出 pick_place。
+            - 对于“先抓再放”的任务，通常应先输出 pick，等待执行反馈后，再在后续轮次输出 place。
+            - 只有当系统明确要求使用单条复合技能时，才输出 pick_place。
 
             四、reset
             表示机械臂复位。
@@ -263,8 +378,8 @@ class TongyiQianwenLLM:
 
             语义理解规则：
             1. “抓起方块”“拿起方块”“夹起方块”都应理解为 pick。
-            2. “放下”“放到”“放在”如果同时包含抓取对象和目标对象，可以理解为 pick_place；
-            但如果系统采用逐步执行，也可以先输出 pick 作为下一步动作。
+            2. “放下”“放到”“放在”如果同时包含抓取对象和目标对象，表示整体目标包含抓取和放置两个阶段。
+                在当前系统中，应采用逐步执行策略，优先输出 pick 作为下一步动作，后续再根据执行反馈输出 place。
             3. “把方块放到圆柱上”可以理解为最终目标是 pick_place，但当前这一轮仍然只能输出一个下一步动作。
             4. “生成一个蓝色方块”应理解为 create。
             5. “删除名为 box1 的物体”应理解为 delete。
@@ -280,6 +395,7 @@ class TongyiQianwenLLM:
             3. 不要输出 "tasks"。
             4. 不要把多个动作合并成列表。
             5. 你的输出必须能被系统直接当作“当前一步命令”执行。
+            6. 对于包含“先抓再放”语义的任务，默认采用逐步执行，不要在第一轮直接输出 pick_place，应先输出 pick。
 
             稳健性要求：
             1. 必须输出合法 JSON。
@@ -307,9 +423,10 @@ class TongyiQianwenLLM:
 
     def _build_replan_prompt(self, user_goal: str, feedback: AgentFeedback) -> str:
         """
-        基于用户目标 + 上一轮执行反馈，生成下一步动作 prompt
+        基于用户目标 + 上一轮执行反馈 + 执行历史，生成下一步动作 prompt
         """
         rules = self._build_prompt_rules()
+        recent_history = self._format_recent_history()
 
         prompt_template = textwrap.dedent("""
             {rules}
@@ -317,19 +434,23 @@ class TongyiQianwenLLM:
             用户整体目标：
             {user_goal}
 
+            最近执行历史：
+            {recent_history}
+
             上一轮执行反馈：
             - action_type: {action_type}
             - success: {success}
             - error_code: {error_code}
             - message: {message}
 
-            请输出下一步动作。
+            请结合整体目标和最近执行历史，输出下一步动作。
         """).strip()
 
         return (
             prompt_template
             .replace("{rules}", rules)
             .replace("{user_goal}", user_goal)
+            .replace("{recent_history}", recent_history)
             .replace("{action_type}", str(feedback.action_type))
             .replace("{success}", str(feedback.success))
             .replace("{error_code}", str(feedback.error_code))
@@ -395,10 +516,10 @@ class TongyiQianwenLLM:
 
         return msg
 
+    # 用户输入goal后运行一次，后续流程在feedback的回调里继续
     def process_user_input(self, user_input: str):
         """
-        处理用户输入，当前阶段只发布第一条 action，
-        不再一次性连续发布全部 tasks。
+        处理用户输入：首轮只生成并发布一个 action。
         """
         prompt = self._build_prompt(user_input)
         response = self.generate(prompt)
@@ -414,22 +535,20 @@ class TongyiQianwenLLM:
             tasks = self._normalize_tasks(data)
 
             if not tasks:
-                rospy.logerr("[LLM] LLM输出中未找到有效 tasks")
+                rospy.logerr("[LLM] LLM输出中未找到有效 action")
                 rospy.logerr(f"[LLM] 解析后的数据: {data}")
                 return None
 
-            total_tasks = len(tasks)
-            self.pending_tasks = list(tasks)
-            self.current_step_id = 1
-
-            first_task = self.pending_tasks.pop(0)
+            first_task = tasks[0]
             msg = self._task_to_msg(first_task)
 
+            self.task_state["step_id"] = 1
+            self._record_action(first_task)
             self.pub.publish(msg)
-            self.waiting_feedback = True
+            self.task_state["status"] = "waiting_feedback"
 
-            rospy.loginfo(f"[LLM] 发布第 1/{total_tasks} 条LLM指令: {msg}")
-            rospy.loginfo(f"[LLM] 进入等待 feedback 状态，剩余任务数: {len(self.pending_tasks)}")
+            rospy.loginfo(f"[LLM] 发布第 {self.task_state['step_id']} 条LLM指令: {msg}")
+            rospy.loginfo("[LLM] 进入等待 feedback 状态")
 
             return [msg]
 
