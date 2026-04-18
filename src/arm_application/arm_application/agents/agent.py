@@ -99,6 +99,19 @@ class Agent:
         rospy.loginfo("Agent 已启动,等待 LLM / GUI 指令...")
         
     def _llm_callback(self, msg):
+
+        if msg.action_type == "none":
+            rospy.loginfo("[LLM] none received, ignore as no-op placeholder")
+            self._publish_feedback(
+                action_type="none",
+                success=True,
+                error_code="SUCCESS",
+                message="none placeholder ignored",
+                retry_exhausted=False,
+                done=True
+            )
+            return
+        
         if msg.action_type == ACTION_PICK:
             action_type = ACTION_PICK
             # 1. 解析坐标,其中包含显式坐标找id，显式id找坐标
@@ -336,6 +349,17 @@ class Agent:
         elif msg.action_type == ACTION_DELETE:
             obj_name = msg.object_name
             self.box_spawner.delete_entity(obj_name)
+        
+        else:
+            rospy.logwarn(f"[LLM] unknown action_type received: {msg.action_type}")
+            self._publish_feedback(
+                action_type=msg.action_type,
+                success=False,
+                error_code="UNKNOWN_ACTION_TYPE",
+                message=f"unknown action_type: {msg.action_type}",
+                retry_exhausted=True
+            )
+            return
 
     def _execute_action_sequence(self, seq: List[Tuple[str, ...]]) -> ActionResult:
         max_retry = 1

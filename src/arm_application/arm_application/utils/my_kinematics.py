@@ -79,27 +79,22 @@ def inverse_kinematics(x: float, y: float, z: float, elbow: str = "down"):
     # 平面距离
     r2 = x * x + y * y
     r = np.sqrt(r2)
-
     # 可达性判定
     L1 = P.a1
     L2 = P.a2
     max_r = L1 + L2
     min_r = abs(L1 - L2)
     planar_ok = (min_r - 1e-9) <= r <= (max_r + 1e-9)
-
     # cos(theta2)
     cos_t2 = (r2 - L1 * L1 - L2 * L2) / (2.0 * L1 * L2)
     cos_t2 = max(min(cos_t2, 1.0), -1.0)
     base = np.arccos(cos_t2)
     theta2 = base if elbow == "up" else -base
-
     # theta1
     theta1 = np.arctan2(y, x) - np.arctan2(L2 * np.sin(theta2), L1 + L2 * np.cos(theta2))
-
     # d3
     d3_raw = z - (P.d1 + P.d2)
     vertical_ok = (P.d3_min - 1e-9) <= d3_raw <= (P.d3_max + 1e-9)
-
     # clamp
     theta1_c, theta2_c, d3_c = clamp_joint_values(theta1, theta2, d3_raw)
     reachable = planar_ok and vertical_ok

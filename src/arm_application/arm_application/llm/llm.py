@@ -673,9 +673,6 @@ class TongyiQianwenLLM:
         return prompt_template.replace("{rules}", rules).replace("{user_input}", user_input)
 
     def _build_replan_prompt_rules(self) -> str:
-        """
-        replan prompt 规则：输出 decision + next_action
-        """
         return textwrap.dedent("""
             你是一个机械臂高层决策模块。
             你的任务是根据用户整体目标、首轮 reference_plan、最近执行历史和上一轮执行反馈，
@@ -687,7 +684,7 @@ class TongyiQianwenLLM:
             {
                 "decision": "continue" | "finish",
                 "next_action": {
-                    "action_type": "pick" | "place" | "reset" | "open_gripper" | "close_gripper" | "create" | "delete",
+                    "action_type": "pick" | "place" | "reset" | "open_gripper" | "close_gripper" | "create" | "delete" | "none",
                     "object_class_id": int,
                     "object_name": "string",
                     "object_x": float,
@@ -705,9 +702,9 @@ class TongyiQianwenLLM:
             1. 顶层必须是一个 JSON 对象。
             2. 顶层必须包含 "decision"。
             3. "decision" 只能取 "continue" 或 "finish"。
-            4. 当 decision = "continue" 时，必须提供合法的 "next_action"。
+            4. 当 decision = "continue" 时，必须提供合法的 "next_action"，且 next_action.action_type 不能为 "none"。
             5. 当 decision = "finish" 时，next_action 必须存在，但所有字段使用默认空动作形式：
-            - action_type = "reset"
+            - action_type = "none"
             - object_class_id = -1
             - object_name = ""
             - object_x = 0.0
@@ -730,24 +727,34 @@ class TongyiQianwenLLM:
             - "close_gripper"
             - "create"
             - "delete"
+            - "none"
 
             动作填写规则：
             1. pick：
             - 使用 object_class_id 指定类别，或使用 object_x/object_y/object_z 指定显式抓取坐标；
             - 若使用显式坐标，则 object_class_id = -1；
             - target 相关字段使用默认值。
+
             2. place：
             - 使用 target_class_id 指定目标类别，或使用 target_x/target_y/target_z 指定显式放置坐标；
             - 若使用显式坐标，则 target_class_id = -1；
             - object 相关字段使用默认值。
+
             3. reset / open_gripper / close_gripper：
             - object 和 target 相关字段全部使用默认值。
+
             4. create：
             - 使用 object_class_id、object_name、object_x/object_y/object_z；
             - target 相关字段使用默认值。
+
             5. delete：
             - 使用 object_name；
             - 其他字段全部使用默认值。
+
+            6. none：
+            - 仅当 decision = "finish" 时允许使用；
+            - object 和 target 相关字段全部使用默认值；
+            - 它只是保持固定 JSON 结构的占位动作，系统不会执行该动作。
 
             默认值规则：
             1. 未使用的 class_id = -1
@@ -764,6 +771,7 @@ class TongyiQianwenLLM:
             7. 只有在原计划明显不再适用时，才允许偏离 reference_plan。
             8. 视觉信息只是低优先级辅助参考，不能因为看到了别的物体就随意改计划。
             9. 当参考计划中的关键步骤已经完成，且用户目标已经达成时，应输出 decision="finish"。
+            10. "none" 不是等待动作、跳过动作或继续观察动作，不能用于 decision="continue"。
 
             稳健性要求：
             1. 必须输出合法 JSON。
