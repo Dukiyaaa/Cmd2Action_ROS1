@@ -486,6 +486,7 @@ class TongyiQianwenLLM:
             9. 不要默认追加 reset 作为结束。
             10. 当关键步骤完成且目标达成时，任务可以自然结束。
 
+                               
             语义理解规则：
             1. “抓起方块”“拿起方块”“夹起方块”都应理解为 pick。
             2. “放下”“放到”“放在”如果同时包含抓取对象和目标对象，通常表示整体目标包含抓取和放置两个阶段。
@@ -493,6 +494,14 @@ class TongyiQianwenLLM:
             4. “生成一个蓝色方块”应理解为 create。
             5. “删除名为 box1 的物体”应理解为 delete。
 
+            视觉参考规则：
+            1. 你会看到当前视觉观测信息，它只是首轮规划的辅助参考，不应压过用户目标本身。
+            2. 如果视觉中已经明确观测到与用户目标对应的物体类别，可以据此生成更贴近当前场景的 reference_plan。
+            3. 如果视觉中暂时没有观测到目标物体，不要仅因此拒绝规划；仍应基于用户目标生成合理的 reference_plan，后续系统会在执行阶段继续确认。
+            4. 不要因为视觉中出现了无关物体，就偏离用户目标去规划其他动作。
+            5. 除非用户明确给出显式坐标，否则首轮规划优先使用 class_id，而不是根据视觉观测擅自填写 object_x/object_y/object_z 或 target_x/target_y/target_z。
+            6. 首轮规划的重点是“理解任务结构”，不是在多个候选物体之间精确选择实例。
+                               
             稳健性要求：
             1. 必须输出合法 JSON。
             2. 不要遗漏必要字段。
@@ -505,6 +514,7 @@ class TongyiQianwenLLM:
         构造首轮 prompt：生成 reference_plan
         """
         rules = self._build_initial_plan_prompt_rules()
+        visual_context = self._format_visual_context()
 
         prompt_template = textwrap.dedent("""
             {rules}
@@ -512,10 +522,18 @@ class TongyiQianwenLLM:
             用户输入：
             {user_input}
 
+            当前视觉观测（辅助参考）：
+            {visual_context}
+
             请输出 reference_plan。
         """).strip()
 
-        return prompt_template.replace("{rules}", rules).replace("{user_input}", user_input)
+        return (
+            prompt_template
+            .replace("{rules}", rules)
+            .replace("{user_input}", user_input)
+            .replace("{visual_context}", visual_context)
+        )
 
     # 多轮prompt共用的部分
     def _build_prompt_rules(self) -> str:
